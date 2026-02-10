@@ -115,7 +115,7 @@ public:
                 float out = svf1.processSample (input);
                 if (activeSlope == Slope::TwentyFourDB)
                     out = svf2.processSample (out);
-                return out;
+                return out * 1.25f;
             }
 
             case Type::Acid:

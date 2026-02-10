@@ -177,6 +177,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     // ---- Distortion ----
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ParameterIDs::distEnabled, 1 }, "Distortion On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::distType, 1 }, "Dist Type",
+        juce::StringArray { "Tanh", "Tube", "Hard Clip", "Fuzz", "Bitcrush", "Tape", "Wavefolder" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::distDrive, 1 }, "Dist Drive",
         juce::NormalisableRange<float> (1.0f, 20.0f, 0.1f, 0.5f), 1.0f));
@@ -184,6 +187,52 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::ParameterID { ParameterIDs::distTone, 1 }, "Dist Tone", pctRange, 0.5f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::distMix, 1 }, "Dist Mix", pctRange, 1.0f));
+
+    // ---- Compressor ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::compEnabled, 1 }, "Compressor On", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compThreshold, 1 }, "Comp Threshold",
+        juce::NormalisableRange<float> (-60.0f, 0.0f, 0.1f), -20.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compRatio, 1 }, "Comp Ratio",
+        juce::NormalisableRange<float> (1.0f, 20.0f, 0.1f, 0.4f), 4.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compAttack, 1 }, "Comp Attack",
+        juce::NormalisableRange<float> (0.1f, 200.0f, 0.1f, 0.3f), 10.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compRelease, 1 }, "Comp Release",
+        juce::NormalisableRange<float> (10.0f, 1000.0f, 1.0f, 0.3f), 100.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compMakeup, 1 }, "Comp Makeup",
+        juce::NormalisableRange<float> (0.0f, 24.0f, 0.1f), 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::compMix, 1 }, "Comp Mix", pctRange, 1.0f));
+
+    // ---- Parametric EQ ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::eqEnabled, 1 }, "EQ On", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqLowFreq, 1 }, "EQ Low Freq",
+        juce::NormalisableRange<float> (20.0f, 1000.0f, 1.0f, 0.3f), 200.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqLowGain, 1 }, "EQ Low Gain",
+        juce::NormalisableRange<float> (-18.0f, 18.0f, 0.1f), 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqMidFreq, 1 }, "EQ Mid Freq",
+        juce::NormalisableRange<float> (100.0f, 10000.0f, 1.0f, 0.3f), 1000.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqMidGain, 1 }, "EQ Mid Gain",
+        juce::NormalisableRange<float> (-18.0f, 18.0f, 0.1f), 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqMidQ, 1 }, "EQ Mid Q",
+        juce::NormalisableRange<float> (0.1f, 10.0f, 0.01f, 0.5f), 1.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqHighFreq, 1 }, "EQ High Freq",
+        juce::NormalisableRange<float> (1000.0f, 20000.0f, 1.0f, 0.3f), 5000.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::eqHighGain, 1 }, "EQ High Gain",
+        juce::NormalisableRange<float> (-18.0f, 18.0f, 0.1f), 0.0f));
 
     // ---- Chorus ----
     layout.add (std::make_unique<juce::AudioParameterBool> (
@@ -218,6 +267,8 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::ParameterID { ParameterIDs::delayPingPong, 1 }, "Delay Ping Pong", false));
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ParameterIDs::delayBBD, 1 }, "Delay BBD", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::delayWidth, 1 }, "Delay Width", pctRange, 1.0f));
 
     // ---- Reverb ----
     layout.add (std::make_unique<juce::AudioParameterBool> (
@@ -234,6 +285,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 10.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::reverbMix, 1 }, "Reverb Mix", pctRange, 0.2f));
+
+    // ---- FX Chain Order ----
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { ParameterIDs::fxOrder, 1 }, "FX Order", 0, 719, 0));
 
     // ---- Global ----
     layout.add (std::make_unique<juce::AudioParameterFloat> (

@@ -29,7 +29,7 @@ MIDI → Arpeggiator (if enabled) → VoiceManager (6 voices)
       → Modulation (LFO + Poly Mod)
     Downsample (7-tap FIR)
   → Voice sum (stereo)
-→ FX Chain: Distortion → Chorus → Delay → Reverb
+→ FX Chain (user-reorderable): Distortion → Compressor → EQ → Chorus → Delay → Reverb
 → Master Volume → Output
 ```
 
@@ -37,13 +37,21 @@ MIDI → Arpeggiator (if enabled) → VoiceManager (6 voices)
 
 - `Source/PluginProcessor.cpp` — Main processBlock: MIDI routing, parameter reads from APVTS, voice rendering, FX, master gain, NaN checks
 - `Source/PluginEditor.cpp` — Creates MainPanel, owns LookAndFeel
-- `Source/ParameterIDs.h` — ~142 `inline constexpr` string IDs for every parameter
+- `Source/ParameterIDs.h` — `inline constexpr` string IDs for every parameter (~165 total)
 - `Source/ParameterLayout.h` — `createParameterLayout()` with custom skewed ranges
 - `Source/PresetManager.h` — XML preset save/load, 15 factory presets in `~/Library/Application Support/AnalogSynth/Presets/`
 - `Source/DSP/` — Voice engine: `VoiceManager`, `SynthVoice`, `PolyBLEPOscillator`, `FilterEngine`, `LadderFilter`, `ADSREnvelope`, `LFO`, `AnalogDrift`
-- `Source/FX/` — `FXChain` (serial), `DistortionEffect`, `ChorusEffect`, `DelayEffect`, `ReverbEffect`
-- `Source/UI/` — `MainPanel`, `RotaryKnob`, panel classes, `AnalogSynthLookAndFeel` (photorealistic theme with imperfections), `WaveformDisplay`
+- `Source/FX/` — `FXBase` (polymorphic base), `FXChain` (serial, reorderable via `FXOrderUtils`), `DistortionEffect` (7 types), `CompressorEffect`, `ParametricEQEffect`, `ChorusEffect`, `DelayEffect` (tempo sync, ping-pong), `ReverbEffect`
+- `Source/UI/` — `MainPanel`, `RotaryKnob`, `FXModulePanel` (eurorack-style drag-and-drop FX modules), panel classes, `AnalogSynthLookAndFeel` (photorealistic theme with imperfections), `WaveformDisplay`
 - `Source/Utility/` — `DebugLog`, `SmoothParam`, `MathHelpers`
+
+### FX Architecture
+
+All effects inherit from `FXBase` (virtual interface: `prepare`, `processBlock`, `reset`, `updateParameters`). `FXChain` owns 6 effects as `std::unique_ptr<FXBase>` and processes them in a configurable order encoded as a factoradic permutation index (0–719) stored in the `fxOrder` parameter. Each effect reads its own parameters from APVTS in its `updateParameters()` override.
+
+**Effects**: Distortion (Tanh/Tube/Hard Clip/Fuzz/Bitcrush/Tape/Wavefolder), Compressor (soft-knee, parallel mix), Parametric EQ (3-band: low shelf, mid peak, high shelf), Chorus/Flanger, Delay (tempo sync, ping-pong with width, BBD mode), Reverb (Room/Hall/Plate/Spring with IIR damping filter).
+
+The UI uses `FXModulePanel` subclasses styled as eurorack modules with drag-and-drop reordering via `DragAndDropContainer`/`DragAndDropTarget`.
 
 ### Parameter Flow
 

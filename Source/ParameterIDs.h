@@ -90,9 +90,29 @@ namespace ParameterIDs
 
     // Effects — Distortion
     inline constexpr auto distEnabled = "dist_enabled";
+    inline constexpr auto distType    = "dist_type";
     inline constexpr auto distDrive   = "dist_drive";
     inline constexpr auto distTone    = "dist_tone";
     inline constexpr auto distMix     = "dist_mix";
+
+    // Effects — Compressor
+    inline constexpr auto compEnabled   = "comp_enabled";
+    inline constexpr auto compThreshold = "comp_threshold";
+    inline constexpr auto compRatio     = "comp_ratio";
+    inline constexpr auto compAttack    = "comp_attack";
+    inline constexpr auto compRelease   = "comp_release";
+    inline constexpr auto compMakeup    = "comp_makeup";
+    inline constexpr auto compMix       = "comp_mix";
+
+    // Effects — Parametric EQ
+    inline constexpr auto eqEnabled   = "eq_enabled";
+    inline constexpr auto eqLowFreq   = "eq_lowFreq";
+    inline constexpr auto eqLowGain   = "eq_lowGain";
+    inline constexpr auto eqMidFreq   = "eq_midFreq";
+    inline constexpr auto eqMidGain   = "eq_midGain";
+    inline constexpr auto eqMidQ      = "eq_midQ";
+    inline constexpr auto eqHighFreq  = "eq_highFreq";
+    inline constexpr auto eqHighGain  = "eq_highGain";
 
     // Effects — Chorus
     inline constexpr auto chorusEnabled = "chorus_enabled";
@@ -110,6 +130,7 @@ namespace ParameterIDs
     inline constexpr auto delaySyncDiv  = "delay_syncDiv";
     inline constexpr auto delayPingPong = "delay_pingPong";
     inline constexpr auto delayBBD      = "delay_bbd";
+    inline constexpr auto delayWidth    = "delay_width";
 
     // Effects — Reverb
     inline constexpr auto reverbEnabled  = "reverb_enabled";
@@ -118,6 +139,9 @@ namespace ParameterIDs
     inline constexpr auto reverbDamping  = "reverb_damping";
     inline constexpr auto reverbPreDelay = "reverb_preDelay";
     inline constexpr auto reverbMix      = "reverb_mix";
+
+    // Effects — Chain Order
+    inline constexpr auto fxOrder = "fx_order";
 
     // Global
     inline constexpr auto masterVol       = "global_masterVol";

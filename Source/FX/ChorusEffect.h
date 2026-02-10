@@ -1,13 +1,16 @@
 #pragma once
 
+#include "FXBase.h"
+#include "../ParameterIDs.h"
 #include <juce_dsp/juce_dsp.h>
-#include <juce_audio_basics/juce_audio_basics.h>
 #include <cmath>
 
-class ChorusEffect
+class ChorusEffect : public FXBase
 {
 public:
-    void prepare (double sampleRate, int samplesPerBlock)
+    ChorusEffect() = default;
+
+    void prepare (double sampleRate, int samplesPerBlock) override
     {
         sr = sampleRate;
 
@@ -25,21 +28,7 @@ public:
         lfoPhase[1] = 0.25; // 90 degrees offset for stereo
     }
 
-    void setEnabled (bool e) { enabled = e; }
-    void setRate (float r)   { rate = r; }
-    void setDepth (float d)  { depth = d; }
-    void setMix (float m)    { mix = m; }
-    void setFlangerMode (bool f) { flangerMode = f; }
-
-    void reset()
-    {
-        for (int ch = 0; ch < 2; ++ch)
-            delayLine[ch].reset();
-        lfoPhase[0] = 0.0;
-        lfoPhase[1] = 0.25;
-    }
-
-    void processBlock (juce::AudioBuffer<float>& buffer)
+    void processBlock (juce::AudioBuffer<float>& buffer) override
     {
         if (! enabled) return;
 
@@ -76,8 +65,27 @@ public:
         }
     }
 
+    void reset() override
+    {
+        for (int ch = 0; ch < 2; ++ch)
+            delayLine[ch].reset();
+        lfoPhase[0] = 0.0;
+        lfoPhase[1] = 0.25;
+    }
+
+    void updateParameters (juce::AudioProcessorValueTreeState& apvts) override
+    {
+        setEnabled (apvts.getRawParameterValue (ParameterIDs::chorusEnabled)->load() > 0.5f);
+        rate = apvts.getRawParameterValue (ParameterIDs::chorusRate)->load();
+        depth = apvts.getRawParameterValue (ParameterIDs::chorusDepth)->load();
+        mix = apvts.getRawParameterValue (ParameterIDs::chorusMix)->load();
+        flangerMode = apvts.getRawParameterValue (ParameterIDs::chorusFlanger)->load() > 0.5f;
+    }
+
+    juce::String getEffectID() const override { return "chorus"; }
+    juce::String getDisplayName() const override { return "CHORUS"; }
+
 private:
-    bool enabled = false;
     float rate = 1.0f;
     float depth = 0.5f;
     float mix = 0.5f;
@@ -86,4 +94,6 @@ private:
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delayLine[2];
     double lfoPhase[2] = {};
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChorusEffect)
 };

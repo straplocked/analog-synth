@@ -379,7 +379,12 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         // Amp envelope with VCA
         float ampVal = ampEnv.processSample();
         // Exponential VCA response (60dB dynamic range, models OTA-based VCA)
-        float ampMod = (ampVal <= 0.0001f) ? 0.0f : FastMath::exp (6.9078f * (ampVal - 1.0f));
+        // Subtract floor and renormalize so envelope 0 → silence (not -60dB plateau)
+        constexpr float vcaK = 6.9078f;           // ln(1000) for 60dB range
+        constexpr float vcaFloor = 0.001f;        // exp(-vcaK)
+        constexpr float vcaScale = 1.0f / (1.0f - vcaFloor);
+        float ampMod = (ampVal <= 0.0001f) ? 0.0f
+            : (FastMath::exp (vcaK * (ampVal - 1.0f)) - vcaFloor) * vcaScale;
 
         // LFO tremolo
         if (hasLFO && lfoAmounts.toAmp != 0.0f)

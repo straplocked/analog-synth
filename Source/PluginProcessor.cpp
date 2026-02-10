@@ -208,6 +208,7 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     }
 
     // Effects chain (stereo)
+    fxChain.setBpm (currentBpm);
     fxChain.updateParameters (apvts);
     fxChain.processBlock (buffer);
 

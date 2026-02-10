@@ -268,7 +268,7 @@ private:
 
     // --- Factory Presets ---
 
-    static constexpr int kFactoryPresetVersion = 3;
+    static constexpr int kFactoryPresetVersion = 4;
 
     void buildFactoryPresets()
     {

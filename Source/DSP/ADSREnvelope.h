@@ -33,7 +33,7 @@ public:
         {
             stage = Stage::Release;
             releaseStartLevel = currentLevel;
-            releaseCoeff = calcCoeff (releaseTime);
+            releaseCoeff = calcCoeff (releaseTime, 9.21f);
         }
     }
 
@@ -116,17 +116,17 @@ private:
     float decayCoeff   = 0.0f;
     float releaseCoeff = 0.0f;
 
-    float calcCoeff (float timeInSeconds) const
+    float calcCoeff (float timeInSeconds, float numTimeConstants = 1.0f) const
     {
         // One-pole coefficient for exponential curve
-        // Reaches ~63% of target in timeInSeconds
-        return 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRate) * timeInSeconds));
+        // numTimeConstants scales how far the curve decays in the given time
+        return 1.0f - std::exp (-numTimeConstants / (static_cast<float> (sampleRate) * timeInSeconds));
     }
 
     void updateCoefficients()
     {
-        attackCoeff  = calcCoeff (attackTime);
-        decayCoeff   = calcCoeff (decayTime);
-        releaseCoeff = calcCoeff (releaseTime);
+        attackCoeff  = calcCoeff (attackTime);            // 1 tau — overshoot target handles the rest
+        decayCoeff   = calcCoeff (decayTime, 4.6f);       // reaches ~-40dB in specified time
+        releaseCoeff = calcCoeff (releaseTime, 9.21f);    // reaches -80dB (idle threshold) in specified time
     }
 };
