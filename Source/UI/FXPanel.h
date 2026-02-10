@@ -109,11 +109,7 @@ public:
 
         // Silkscreen title with section color
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        g.setFont (juce::Font (11.0f).boldened());
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
-        g.drawText ("EFFECTS", titleArea.translated (0, -0.5f), juce::Justification::centredLeft, false);
-        g.setColour (SynthColours::sectionFx);
-        g.drawText ("EFFECTS", titleArea, juce::Justification::centredLeft, false);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "EFFECTS", titleArea, SynthColours::sectionFx);
 
         // Horizontal rule
         g.setColour (SynthColours::silkscreen.withAlpha (0.15f));
@@ -135,7 +131,7 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (4);
+        auto bounds = getLocalBounds().reduced (6);
         bounds.removeFromTop (20);
 
         int sectionW = bounds.getWidth() / 4;

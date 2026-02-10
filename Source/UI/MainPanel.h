@@ -8,7 +8,6 @@
 #include "WaveformDisplay.h"
 #include "FilterPanel.h"
 #include "MixerPanel.h"
-#include "PolyModPanel.h"
 #include "TabbedBottomPanel.h"
 #include "PitchModWheelPanel.h"
 #include "../ParameterIDs.h"
@@ -26,7 +25,6 @@ public:
         addAndMakeVisible (oscCPanel);
         addAndMakeVisible (filterPanel);
         addAndMakeVisible (mixerPanel);
-        addAndMakeVisible (polyModPanel);
         addAndMakeVisible (tabbedPanel);
         addAndMakeVisible (wheelPanel);
 
@@ -113,7 +111,6 @@ public:
 
         filterPanel.attach (apvts);
         mixerPanel.attach (apvts);
-        polyModPanel.attach (apvts);
         tabbedPanel.attach (apvts);
     }
 
@@ -128,6 +125,28 @@ public:
 
         // Brushed metal faceplate
         AnalogSynthLookAndFeel::fillBrushedMetal (g, bounds, SynthColours::faceplateMid);
+
+        // Subtle color temperature variation (patina — warm center, cooler edges)
+        {
+            juce::ColourGradient warmPatch (
+                juce::Colour (0x04daa520),
+                bounds.getCentreX() * 0.7f, bounds.getCentreY() * 0.6f,
+                juce::Colours::transparentBlack,
+                bounds.getCentreX() * 0.7f + bounds.getWidth() * 0.4f,
+                bounds.getCentreY() * 0.6f + bounds.getHeight() * 0.4f,
+                true);
+            g.setGradientFill (warmPatch);
+            g.fillRect (bounds);
+
+            juce::ColourGradient coolPatch (
+                juce::Colour (0x035566aa),
+                bounds.getRight() * 0.8f, bounds.getY() + bounds.getHeight() * 0.3f,
+                juce::Colours::transparentBlack,
+                bounds.getRight() * 0.8f, bounds.getY() + bounds.getHeight() * 0.3f + 200.0f,
+                true);
+            g.setGradientFill (coolPatch);
+            g.fillRect (bounds);
+        }
 
         // Wood end-cheeks
         auto leftWood = juce::Rectangle<float> (bounds.getX(), bounds.getY(), woodCheekWidth, bounds.getHeight());
@@ -160,6 +179,60 @@ public:
     void paintOverChildren (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
+
+        // Dust / surface marks — very sparse tiny specs
+        {
+            for (int i = 0; i < 12; ++i)
+            {
+                unsigned int h = static_cast<unsigned int> (i * 7919 + 0x1234);
+                h ^= 0x27d4eb2d;
+                h *= h;
+                h ^= h >> 13;
+
+                float dx = (static_cast<float> (h % 10000) / 10000.0f) * bounds.getWidth();
+                float dy = (static_cast<float> ((h >> 14) % 10000) / 10000.0f) * bounds.getHeight();
+                float specSize = 0.5f + (static_cast<float> ((h >> 7) % 100) / 200.0f);
+
+                if (i % 3 == 0)
+                    g.setColour (juce::Colours::white.withAlpha (0.03f));
+                else
+                    g.setColour (juce::Colours::black.withAlpha (0.04f));
+
+                g.fillEllipse (dx, dy, specSize, specSize);
+            }
+        }
+
+        // Ambient occlusion around child panels
+        auto drawPanelAO = [&] (juce::Component& panel, float aoSize = 3.0f, float aoAlpha = 0.08f)
+        {
+            if (! panel.isVisible()) return;
+            auto pb = panel.getBounds().toFloat();
+
+            juce::ColourGradient topAO (juce::Colours::black.withAlpha (aoAlpha),
+                                         pb.getX(), pb.getY(),
+                                         juce::Colours::transparentBlack,
+                                         pb.getX(), pb.getY() - aoSize, false);
+            g.setGradientFill (topAO);
+            g.fillRect (pb.getX(), pb.getY() - aoSize, pb.getWidth(), aoSize);
+
+            juce::ColourGradient leftAO (juce::Colours::black.withAlpha (aoAlpha * 0.7f),
+                                          pb.getX(), pb.getY(),
+                                          juce::Colours::transparentBlack,
+                                          pb.getX() - aoSize, pb.getY(), false);
+            g.setGradientFill (leftAO);
+            g.fillRect (pb.getX() - aoSize, pb.getY(), aoSize, pb.getHeight());
+
+            g.setColour (juce::Colours::white.withAlpha (0.02f));
+            g.fillRect (pb.getX() + 4.0f, pb.getBottom(),
+                        pb.getWidth() - 8.0f, 1.0f);
+        };
+
+        drawPanelAO (oscAPanel);
+        drawPanelAO (oscBPanel);
+        drawPanelAO (oscCPanel);
+        drawPanelAO (filterPanel);
+        drawPanelAO (mixerPanel);
+        drawPanelAO (waveformDisplay);
 
         // Top edge highlight
         g.setColour (juce::Colours::white.withAlpha (0.05f));
@@ -203,24 +276,21 @@ public:
         // Separator line
         bounds.removeFromBottom (2);
 
-        // Middle area splits into two rows
-        // Row 1 (top): OSC A | OSC B | OSC C | Waveform — 200px
+        // Top row: OSC A | OSC B | OSC C — full width, more breathing room
         auto topRow = bounds.removeFromTop (200);
-        int waveW = 220;
-        int oscW = (topRow.getWidth() - waveW) / 3;
-        oscAPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
-        oscBPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
-        oscCPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
-        waveformDisplay.setBounds (topRow.reduced (4));
+        int oscW = topRow.getWidth() / 3;
+        oscAPanel.setBounds (topRow.removeFromLeft (oscW).reduced (6));
+        oscBPanel.setBounds (topRow.removeFromLeft (oscW).reduced (6));
+        oscCPanel.setBounds (topRow.reduced (6));
 
-        // Row 2 (bottom): Filter | Mixer | PolyMod
+        // Middle row: Filter | Mixer | Waveform — signal flow left to right
         auto midRow = bounds.reduced (0, 2);
-        int filterW = midRow.getWidth() * 40 / 100;
-        int mixerW  = midRow.getWidth() * 22 / 100;
+        int filterW = midRow.getWidth() * 45 / 100;
+        int mixerW  = midRow.getWidth() * 25 / 100;
 
-        filterPanel.setBounds (midRow.removeFromLeft (filterW).reduced (4));
-        mixerPanel.setBounds (midRow.removeFromLeft (mixerW).reduced (4));
-        polyModPanel.setBounds (midRow.reduced (4));
+        filterPanel.setBounds (midRow.removeFromLeft (filterW).reduced (6));
+        mixerPanel.setBounds (midRow.removeFromLeft (mixerW).reduced (6));
+        waveformDisplay.setBounds (midRow.reduced (6));
     }
 
     bool keyPressed (const juce::KeyPress& key) override
@@ -275,7 +345,6 @@ private:
     WaveformDisplay waveformDisplay;
     FilterPanel     filterPanel;
     MixerPanel      mixerPanel;
-    PolyModPanel    polyModPanel;
     TabbedBottomPanel tabbedPanel;
     PitchModWheelPanel wheelPanel;
     std::unique_ptr<juce::MidiKeyboardComponent> keyboard;

@@ -136,7 +136,12 @@ public:
     static void fillBrushedMetal (juce::Graphics& g, juce::Rectangle<float> area,
                                   juce::Colour baseColour, float grainIntensity = 0.03f);
 
-    static void drawScrewHead (juce::Graphics& g, float cx, float cy, float radius = 4.0f);
+    static void drawScrewHead (juce::Graphics& g, float cx, float cy, float radius = 4.0f,
+                               float rotationOverride = -999.0f);
+
+    static void drawSectionTitle (juce::Graphics& g, const juce::String& text,
+                                   juce::Rectangle<float> area, juce::Colour sectionColour,
+                                   float fontSize = 11.0f);
 
     static void drawSilkscreenLabel (juce::Graphics& g, const juce::String& text,
                                       juce::Rectangle<float> area,

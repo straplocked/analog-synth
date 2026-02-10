@@ -54,7 +54,7 @@ public:
 
         // Silkscreen title
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        AnalogSynthLookAndFeel::drawSilkscreenLabel (g, "MIXER", titleArea, juce::Justification::centredLeft, 11.0f);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "MIXER", titleArea, SynthColours::silkscreen);
 
         // Horizontal rule
         g.setColour (SynthColours::silkscreen.withAlpha (0.15f));
@@ -63,7 +63,7 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (6);
+        auto bounds = getLocalBounds().reduced (8);
         bounds.removeFromTop (20);
 
         // Bottom row: sub waveform and octave selectors

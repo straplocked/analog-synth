@@ -102,8 +102,8 @@ Source/
 │   ├── OscillatorPanel.h    Waveform selector + tuning knobs (×3)
 │   ├── FilterPanel.h        Type/slope selectors + filter knobs
 │   ├── MixerPanel.h         5 level knobs + sub waveform/octave
-│   ├── PolyModPanel.h       2×5 modulation amount knobs
-│   ├── TabbedBottomPanel.h  Tab container for ENV/LFO/FX/GLOBAL
+│   ├── PolyModPanel.h       2×5 modulation amount knobs (housed in tabbed panel)
+│   ├── TabbedBottomPanel.h  Tab container for ENV/LFO/POLY MOD/FX/GLOBAL
 │   ├── EnvelopePanel.h      Dual ADSR sections with visual editors
 │   ├── ADSREditor.h         Visual envelope curve with LCD styling
 │   ├── LFOPanel.h           Shape/rate/sync + destination amount knobs
@@ -113,7 +113,7 @@ Source/
 │   ├── WaveformDisplay.h    Real-time oscilloscope (ring buffer, 30Hz refresh)
 │   ├── PitchModWheelPanel.h Pitch bend + mod wheel sliders
 │   ├── MidiKeyboardPanel.h  On-screen keyboard with octave buttons
-│   └── AnalogSynthLookAndFeel.h/cpp  Custom theme: metal, wood, 3D knobs, LEDs
+│   └── AnalogSynthLookAndFeel.h/cpp  Custom theme: metal, wood, 3D knobs, LEDs, imperfections
 │
 └── Utility/
     ├── DebugLog.h           Optional file logging to Desktop

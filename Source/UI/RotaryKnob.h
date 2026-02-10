@@ -26,8 +26,8 @@ public:
         addAndMakeVisible (label);
 
         valueLabel.setJustificationType (juce::Justification::centred);
-        valueLabel.setFont (juce::Font (10.0f));
-        valueLabel.setColour (juce::Label::textColourId, SynthColours::accent);
+        valueLabel.setFont (juce::Font (9.0f));
+        valueLabel.setColour (juce::Label::textColourId, SynthColours::accent.withAlpha (0.85f));
         valueLabel.setInterceptsMouseClicks (false, false);
         addAndMakeVisible (valueLabel);
 

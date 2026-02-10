@@ -55,11 +55,7 @@ public:
 
         // Silkscreen title with section color
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        g.setFont (juce::Font (11.0f).boldened());
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
-        g.drawText ("FILTER", titleArea.translated (0, -0.5f), juce::Justification::centredLeft, false);
-        g.setColour (SynthColours::sectionFilter);
-        g.drawText ("FILTER", titleArea, juce::Justification::centredLeft, false);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "FILTER", titleArea, SynthColours::sectionFilter);
 
         // Horizontal rule
         g.setColour (SynthColours::silkscreen.withAlpha (0.15f));
@@ -68,7 +64,7 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (6);
+        auto bounds = getLocalBounds().reduced (8);
         bounds.removeFromTop (20);
 
         // Combo row: type selector | slope selector

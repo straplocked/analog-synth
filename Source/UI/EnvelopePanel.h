@@ -91,8 +91,8 @@ public:
         auto bounds = getLocalBounds();
         int halfW = bounds.getWidth() / 2;
 
-        auto leftHalf  = bounds.removeFromLeft (halfW).reduced (4);
-        auto rightHalf = bounds.reduced (4);
+        auto leftHalf  = bounds.removeFromLeft (halfW).reduced (6);
+        auto rightHalf = bounds.reduced (6);
 
         // Filter env: visual on top, knobs below
         filterEnvEditor.setBounds (leftHalf.removeFromTop (leftHalf.getHeight() * 2 / 3));

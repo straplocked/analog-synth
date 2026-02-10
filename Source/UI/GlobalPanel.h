@@ -101,15 +101,11 @@ public:
 
         // Silkscreen titles
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        AnalogSynthLookAndFeel::drawSilkscreenLabel (g, "VOICE", titleArea, juce::Justification::centredLeft, 11.0f);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "VOICE", titleArea, SynthColours::silkscreen);
 
         auto rightTitle = bounds.reduced (10, 4).removeFromTop (16);
         rightTitle.removeFromLeft (bounds.getWidth() * 0.5f + 8.0f);
-        g.setFont (juce::Font (11.0f).boldened());
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
-        g.drawText ("ARPEGGIATOR", rightTitle.translated (0, -0.5f), juce::Justification::centredLeft, false);
-        g.setColour (SynthColours::sectionLfo);
-        g.drawText ("ARPEGGIATOR", rightTitle, juce::Justification::centredLeft, false);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "ARPEGGIATOR", rightTitle, SynthColours::sectionLfo);
     }
 
     void resized() override

@@ -67,11 +67,7 @@ public:
 
         // Silkscreen title with section color
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        g.setFont (juce::Font (11.0f).boldened());
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
-        g.drawText ("LFO", titleArea.translated (0, -0.5f), juce::Justification::centredLeft, false);
-        g.setColour (SynthColours::sectionLfo);
-        g.drawText ("LFO", titleArea, juce::Justification::centredLeft, false);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "LFO", titleArea, SynthColours::sectionLfo);
 
         // Horizontal rule
         g.setColour (SynthColours::silkscreen.withAlpha (0.15f));

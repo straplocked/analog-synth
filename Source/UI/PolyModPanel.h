@@ -68,11 +68,7 @@ public:
 
         // Silkscreen title
         auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        g.setFont (juce::Font (11.0f).boldened());
-        g.setColour (juce::Colours::black.withAlpha (0.3f));
-        g.drawText ("POLY MOD", titleArea.translated (0, -0.5f), juce::Justification::centredLeft, false);
-        g.setColour (SynthColours::accent);
-        g.drawText ("POLY MOD", titleArea, juce::Justification::centredLeft, false);
+        AnalogSynthLookAndFeel::drawSectionTitle (g, "POLY MOD", titleArea, SynthColours::accent);
 
         // Horizontal rule
         g.setColour (SynthColours::silkscreen.withAlpha (0.15f));
@@ -88,7 +84,7 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (6);
+        auto bounds = getLocalBounds().reduced (8);
         bounds.removeFromTop (20);
 
         int labelW = 50;

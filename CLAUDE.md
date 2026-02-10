@@ -42,7 +42,7 @@ MIDI → Arpeggiator (if enabled) → VoiceManager (6 voices)
 - `Source/PresetManager.h` — XML preset save/load, 15 factory presets in `~/Library/Application Support/AnalogSynth/Presets/`
 - `Source/DSP/` — Voice engine: `VoiceManager`, `SynthVoice`, `PolyBLEPOscillator`, `FilterEngine`, `LadderFilter`, `ADSREnvelope`, `LFO`, `AnalogDrift`
 - `Source/FX/` — `FXChain` (serial), `DistortionEffect`, `ChorusEffect`, `DelayEffect`, `ReverbEffect`
-- `Source/UI/` — `MainPanel`, `RotaryKnob`, panel classes, `AnalogSynthLookAndFeel`, `WaveformDisplay`
+- `Source/UI/` — `MainPanel`, `RotaryKnob`, panel classes, `AnalogSynthLookAndFeel` (photorealistic theme with imperfections), `WaveformDisplay`
 - `Source/Utility/` — `DebugLog`, `SmoothParam`, `MathHelpers`
 
 ### Parameter Flow

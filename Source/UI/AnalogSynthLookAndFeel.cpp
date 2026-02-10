@@ -72,6 +72,45 @@ void AnalogSynthLookAndFeel::fillBrushedMetal (juce::Graphics& g, juce::Rectangl
                                     baseColour.withAlpha (0.0f), area.getRight() - edgeW, 0, false);
     g.setGradientFill (rightEdge);
     g.fillRect (area.getRight() - edgeW, area.getY(), edgeW, area.getHeight());
+
+    // Micro-scratch overlay — near-horizontal hairlines simulating surface wear
+    int scratchSeed = static_cast<int> (area.getY() * 31 + area.getX() * 17);
+    int numScratches = static_cast<int> (area.getHeight()) / 80;
+
+    for (int s = 0; s < numScratches; ++s)
+    {
+        unsigned int h = static_cast<unsigned int> ((scratchSeed + s * 7919) & 0x7fffffff);
+        h ^= 0x27d4eb2d;
+        h *= 0x27d4eb2d;
+        h ^= h >> 16;
+
+        float sy = area.getY() + (static_cast<float> (h % 1000) / 1000.0f) * area.getHeight();
+        float sx = area.getX() + (static_cast<float> ((h >> 10) % 1000) / 1000.0f) * area.getWidth() * 0.3f;
+        float scratchLen = 20.0f + static_cast<float> ((h >> 20) % 60);
+        float scratchAngle = -0.05f + (static_cast<float> ((h >> 5) % 100) / 1000.0f);
+
+        float ex = sx + scratchLen * std::cos (scratchAngle);
+        float ey = sy + scratchLen * std::sin (scratchAngle);
+
+        g.setColour (juce::Colours::white.withAlpha (0.018f));
+        g.drawLine (sx, sy, ex, ey, 0.5f);
+    }
+
+    // Metallic sparkle flecks — sparse bright micro-dots
+    int fleckCount = static_cast<int> (area.getWidth() * area.getHeight()) / 8000;
+    for (int f = 0; f < fleckCount; ++f)
+    {
+        unsigned int fh = static_cast<unsigned int> (f * 6151 + static_cast<int> (area.getX()) * 29);
+        fh ^= 0x12345678;
+        fh *= 0x5bd1e995;
+        fh ^= fh >> 15;
+
+        float fx = area.getX() + (static_cast<float> (fh % 10000) / 10000.0f) * area.getWidth();
+        float fy = area.getY() + (static_cast<float> ((fh >> 14) % 10000) / 10000.0f) * area.getHeight();
+
+        g.setColour (juce::Colours::white.withAlpha (0.06f + (static_cast<float> ((fh >> 7) % 50) / 1000.0f)));
+        g.fillRect (fx, fy, 1.0f, 1.0f);
+    }
 }
 
 void AnalogSynthLookAndFeel::drawRecessedPanel (juce::Graphics& g, juce::Rectangle<float> area,
@@ -81,28 +120,62 @@ void AnalogSynthLookAndFeel::drawRecessedPanel (juce::Graphics& g, juce::Rectang
     g.setColour (SynthColours::recessDark);
     g.fillRoundedRectangle (area, cornerRadius);
 
-    // Top inner shadow
+    // Layer 1: Ambient occlusion — soft shadow around entire inner perimeter
     {
-        juce::ColourGradient topShadow (SynthColours::recessDark.darker (0.4f), area.getX(), area.getY(),
-                                         juce::Colours::transparentBlack, area.getX(), area.getY() + depth * 2.0f, false);
+        float aoDepth = depth * 1.5f;
+
+        juce::ColourGradient topAO (juce::Colours::black.withAlpha (0.15f),
+                                     area.getX(), area.getY(),
+                                     juce::Colours::transparentBlack,
+                                     area.getX(), area.getY() + aoDepth, false);
+        g.setGradientFill (topAO);
+        g.fillRoundedRectangle (area.getX(), area.getY(), area.getWidth(), aoDepth, cornerRadius);
+
+        juce::ColourGradient botAO (juce::Colours::black.withAlpha (0.06f),
+                                     area.getX(), area.getBottom(),
+                                     juce::Colours::transparentBlack,
+                                     area.getX(), area.getBottom() - aoDepth, false);
+        g.setGradientFill (botAO);
+        g.fillRoundedRectangle (area.getX(), area.getBottom() - aoDepth, area.getWidth(), aoDepth, cornerRadius);
+
+        juce::ColourGradient leftAO (juce::Colours::black.withAlpha (0.12f),
+                                      area.getX(), area.getY(),
+                                      juce::Colours::transparentBlack,
+                                      area.getX() + aoDepth, area.getY(), false);
+        g.setGradientFill (leftAO);
+        g.fillRoundedRectangle (area.getX(), area.getY(), aoDepth, area.getHeight(), cornerRadius);
+
+        juce::ColourGradient rightAO (juce::Colours::black.withAlpha (0.05f),
+                                       area.getRight(), area.getY(),
+                                       juce::Colours::transparentBlack,
+                                       area.getRight() - aoDepth, area.getY(), false);
+        g.setGradientFill (rightAO);
+        g.fillRoundedRectangle (area.getRight() - aoDepth, area.getY(), aoDepth, area.getHeight(), cornerRadius);
+    }
+
+    // Layer 2: Directional inner shadow (light from upper-left)
+    {
+        juce::ColourGradient topShadow (SynthColours::recessDark.darker (0.5f),
+                                         area.getX(), area.getY(),
+                                         juce::Colours::transparentBlack,
+                                         area.getX(), area.getY() + depth * 3.0f, false);
         g.setGradientFill (topShadow);
-        g.fillRoundedRectangle (area.getX(), area.getY(), area.getWidth(), depth * 3.0f, cornerRadius);
-    }
+        g.fillRoundedRectangle (area.getX(), area.getY(), area.getWidth(), depth * 4.0f, cornerRadius);
 
-    // Left inner shadow
-    {
-        juce::ColourGradient leftShadow (SynthColours::recessDark.darker (0.3f), area.getX(), area.getY(),
-                                          juce::Colours::transparentBlack, area.getX() + depth * 2.0f, area.getY(), false);
+        juce::ColourGradient leftShadow (SynthColours::recessDark.darker (0.4f),
+                                          area.getX(), area.getY(),
+                                          juce::Colours::transparentBlack,
+                                          area.getX() + depth * 3.0f, area.getY(), false);
         g.setGradientFill (leftShadow);
-        g.fillRoundedRectangle (area.getX(), area.getY(), depth * 2.5f, area.getHeight(), cornerRadius);
+        g.fillRoundedRectangle (area.getX(), area.getY(), depth * 3.5f, area.getHeight(), cornerRadius);
     }
 
-    // Bottom highlight
-    g.setColour (SynthColours::recessHighlight);
+    // Layer 3: Warm catch light on bottom/right edges
+    g.setColour (juce::Colour (0x1afff8f0));
     g.fillRect (area.getX() + cornerRadius, area.getBottom() - 1.0f,
                 area.getWidth() - cornerRadius * 2.0f, 1.0f);
 
-    // Right highlight
+    g.setColour (juce::Colour (0x14fff8f0));
     g.fillRect (area.getRight() - 1.0f, area.getY() + cornerRadius,
                 1.0f, area.getHeight() - cornerRadius * 2.0f);
 
@@ -114,9 +187,22 @@ void AnalogSynthLookAndFeel::drawRecessedPanel (juce::Graphics& g, juce::Rectang
     g.setColour (SynthColours::faceplateMid.brighter (0.08f));
     g.drawLine (area.getX(), area.getBottom(), area.getRight(), area.getBottom(), 1.0f);
     g.drawLine (area.getRight(), area.getY(), area.getRight(), area.getBottom(), 1.0f);
+
+    // Corner wear — slightly brighter where paint would wear from use
+    float wearRadius = cornerRadius * 2.5f;
+    g.setColour (juce::Colours::white.withAlpha (0.025f));
+    g.fillEllipse (area.getX() - wearRadius * 0.3f, area.getY() - wearRadius * 0.3f,
+                   wearRadius, wearRadius);
+    g.fillEllipse (area.getRight() - wearRadius * 0.7f, area.getY() - wearRadius * 0.3f,
+                   wearRadius, wearRadius);
+    g.fillEllipse (area.getX() - wearRadius * 0.3f, area.getBottom() - wearRadius * 0.7f,
+                   wearRadius, wearRadius);
+    g.fillEllipse (area.getRight() - wearRadius * 0.7f, area.getBottom() - wearRadius * 0.7f,
+                   wearRadius, wearRadius);
 }
 
-void AnalogSynthLookAndFeel::drawScrewHead (juce::Graphics& g, float cx, float cy, float radius)
+void AnalogSynthLookAndFeel::drawScrewHead (juce::Graphics& g, float cx, float cy, float radius,
+                                              float rotationOverride)
 {
     // Shadow behind screw
     g.setColour (juce::Colours::black.withAlpha (0.4f));
@@ -132,12 +218,30 @@ void AnalogSynthLookAndFeel::drawScrewHead (juce::Graphics& g, float cx, float c
     g.setColour (SynthColours::screwSlot.withAlpha (0.6f));
     g.drawEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f, 0.5f);
 
-    // Phillips cross slot
+    // Phillips cross slot — per-screw rotation variance
+    float screwAngle;
+    if (rotationOverride > -998.0f)
+    {
+        screwAngle = rotationOverride;
+    }
+    else
+    {
+        unsigned int posHash = static_cast<unsigned int> (cx * 73.0f + cy * 131.0f);
+        posHash ^= 0xdeadbeef;
+        posHash *= 0x01000193;
+        screwAngle = (static_cast<float> (posHash % 3600) / 3600.0f) * juce::MathConstants<float>::twoPi;
+    }
+
     float slotLen = radius * 0.7f;
     float slotW = 0.8f;
+
+    juce::Path crossSlot;
+    crossSlot.addRectangle (-slotLen, -slotW * 0.5f, slotLen * 2.0f, slotW);
+    crossSlot.addRectangle (-slotW * 0.5f, -slotLen, slotW, slotLen * 2.0f);
+    crossSlot.applyTransform (juce::AffineTransform::rotation (screwAngle).translated (cx, cy));
+
     g.setColour (SynthColours::screwSlot);
-    g.fillRect (cx - slotLen, cy - slotW * 0.5f, slotLen * 2.0f, slotW);
-    g.fillRect (cx - slotW * 0.5f, cy - slotLen, slotW, slotLen * 2.0f);
+    g.fillPath (crossSlot);
 
     // Specular dot
     g.setColour (juce::Colours::white.withAlpha (0.25f));
@@ -162,8 +266,13 @@ void AnalogSynthLookAndFeel::drawSilkscreenLabel (juce::Graphics& g, const juce:
         g.drawText (text, area.translated (0, -0.5f), just, false);
     }
 
-    // Main text
-    g.setColour (SynthColours::silkscreen);
+    // Main text — with subtle position-dependent wear
+    unsigned int wearHash = static_cast<unsigned int> (area.getX() * 41.0f + area.getY() * 67.0f);
+    wearHash ^= 0xbaadf00d;
+    wearHash *= 0x01000193;
+    float wearFactor = 0.92f + (static_cast<float> (wearHash % 160) / 2000.0f);
+
+    g.setColour (SynthColours::silkscreen.withMultipliedAlpha (wearFactor));
     g.drawText (text, area, just, false);
 }
 
@@ -172,12 +281,18 @@ void AnalogSynthLookAndFeel::drawLED (juce::Graphics& g, float cx, float cy, flo
 {
     if (isOn)
     {
+        // Per-LED brightness variation (component tolerance simulation)
+        unsigned int ledHash = static_cast<unsigned int> (cx * 61.0f + cy * 37.0f);
+        ledHash ^= 0xcafebabe;
+        ledHash *= 0x01000193;
+        float brightnessVar = 0.9f + (static_cast<float> (ledHash % 200) / 1000.0f);
+
         // Outer glow layers
-        g.setColour (colour.withAlpha (0.10f));
+        g.setColour (colour.withAlpha (0.10f * brightnessVar));
         g.fillEllipse (cx - radius - 5.0f, cy - radius - 5.0f,
                        (radius + 5.0f) * 2.0f, (radius + 5.0f) * 2.0f);
 
-        g.setColour (colour.withAlpha (0.20f));
+        g.setColour (colour.withAlpha (0.20f * brightnessVar));
         g.fillEllipse (cx - radius - 2.5f, cy - radius - 2.5f,
                        (radius + 2.5f) * 2.0f, (radius + 2.5f) * 2.0f);
 
@@ -186,7 +301,7 @@ void AnalogSynthLookAndFeel::drawLED (juce::Graphics& g, float cx, float cy, flo
         g.fillEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f);
 
         // Specular dot
-        g.setColour (juce::Colours::white.withAlpha (0.5f));
+        g.setColour (juce::Colours::white.withAlpha (0.5f * brightnessVar));
         g.fillEllipse (cx - radius * 0.3f, cy - radius * 0.4f, radius * 0.5f, radius * 0.5f);
     }
     else
@@ -220,6 +335,25 @@ void AnalogSynthLookAndFeel::fillWoodGrain (juce::Graphics& g, juce::Rectangle<f
 
         g.setColour (lineColour);
         g.fillRect (area.getX(), fy, w, 1.0f);
+    }
+
+    // Wood knots — darker elliptical spots for natural character
+    for (int k = 0; k < 2; ++k)
+    {
+        unsigned int kh = static_cast<unsigned int> (area.getX() * 31.0f + static_cast<float> (k) * 4919.0f);
+        kh ^= 0xfeedface;
+        kh *= 0x01000193;
+
+        float knotX = area.getX() + area.getWidth() * 0.3f + (static_cast<float> (kh % 100) / 250.0f) * area.getWidth();
+        float knotY = area.getY() + area.getHeight() * 0.25f + (static_cast<float> ((kh >> 8) % 1000) / 2000.0f) * area.getHeight();
+        float knotW = 4.0f + static_cast<float> ((kh >> 16) % 30) / 10.0f;
+        float knotH = knotW * (1.5f + static_cast<float> ((kh >> 20) % 10) / 10.0f);
+
+        juce::ColourGradient knotGrad (
+            SynthColours::woodGrain.withAlpha (0.35f), knotX, knotY,
+            juce::Colours::transparentBlack, knotX, knotY + knotH * 0.5f, true);
+        g.setGradientFill (knotGrad);
+        g.fillEllipse (knotX - knotW * 0.5f, knotY - knotH * 0.5f, knotW, knotH);
     }
 
     // Edge darkening
@@ -358,6 +492,19 @@ void AnalogSynthLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, 
     }
 
     // --- Layer 3: Knob body (3D convex cylinder) ---
+    // Per-knob brightness micro-variation (manufacturing tolerance simulation)
+    unsigned int knobHash = static_cast<unsigned int> (centre.x * 97.0f + centre.y * 53.0f);
+    knobHash ^= 0x5bd1e995;
+    knobHash *= 0x01000193;
+    float brightnessVariation = (static_cast<float> (knobHash % 1000) / 500.0f - 1.0f) * 0.02f;
+
+    auto knobLight = brightnessVariation > 0.0f
+        ? SynthColours::knobBodyLight.brighter (brightnessVariation)
+        : SynthColours::knobBodyLight.darker (-brightnessVariation);
+    auto knobDark = brightnessVariation > 0.0f
+        ? SynthColours::knobBodyDark.brighter (brightnessVariation * 0.5f)
+        : SynthColours::knobBodyDark.darker (-brightnessVariation * 0.5f);
+
     float knobSize = diameter * 0.55f;
     auto knobBounds = juce::Rectangle<float> (centre.x - knobSize * 0.5f,
                                                 centre.y - knobSize * 0.5f,
@@ -365,9 +512,9 @@ void AnalogSynthLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, 
 
     float lightOffsetX = knobSize * -0.15f;
     float lightOffsetY = knobSize * -0.15f;
-    juce::ColourGradient knobGrad (SynthColours::knobBodyLight,
+    juce::ColourGradient knobGrad (knobLight,
                                     centre.x + lightOffsetX, centre.y + lightOffsetY,
-                                    SynthColours::knobBodyDark,
+                                    knobDark,
                                     centre.x + knobSize * 0.4f, centre.y + knobSize * 0.4f,
                                     true);
     g.setGradientFill (knobGrad);
@@ -421,11 +568,40 @@ void AnalogSynthLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, 
         g.fillPath (pointer);
     }
 
-    // --- Layer 7: Specular highlight ---
-    g.setColour (juce::Colours::white.withAlpha (0.12f));
-    float specSize = knobSize * 0.35f;
-    g.fillEllipse (centre.x - knobSize * 0.25f, centre.y - knobSize * 0.28f,
-                   specSize, specSize * 0.6f);
+    // --- Layer 7: Multi-layer specular highlights ---
+
+    // Diffuse specular — large, soft ambient reflection
+    {
+        float diffSize = knobSize * 0.45f;
+        juce::ColourGradient diffSpec (
+            juce::Colours::white.withAlpha (0.09f),
+            centre.x - knobSize * 0.2f, centre.y - knobSize * 0.25f,
+            juce::Colours::transparentBlack,
+            centre.x - knobSize * 0.2f + diffSize, centre.y - knobSize * 0.25f + diffSize * 0.7f,
+            true);
+        g.setGradientFill (diffSpec);
+        g.fillEllipse (centre.x - knobSize * 0.32f, centre.y - knobSize * 0.35f,
+                       diffSize, diffSize * 0.65f);
+    }
+
+    // Focused specular — small, bright point light reflection
+    {
+        float focusSize = knobSize * 0.15f;
+        g.setColour (juce::Colours::white.withAlpha (0.18f));
+        g.fillEllipse (centre.x - knobSize * 0.18f, centre.y - knobSize * 0.22f,
+                       focusSize, focusSize * 0.5f);
+    }
+
+    // Rim light — subtle arc at bottom edge from surface reflection
+    {
+        float rimStartAngle = juce::MathConstants<float>::pi * 0.6f;
+        float rimEndAngle = juce::MathConstants<float>::pi * 1.4f;
+        juce::Path rimArc;
+        rimArc.addCentredArc (centre.x, centre.y, knobSize * 0.48f, knobSize * 0.48f,
+                               0.0f, rimStartAngle, rimEndAngle, true);
+        g.setColour (juce::Colours::white.withAlpha (0.04f));
+        g.strokePath (rimArc, juce::PathStrokeType (1.5f));
+    }
 }
 
 //==============================================================================
@@ -775,6 +951,29 @@ void AnalogSynthLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::R
 //==============================================================================
 // Glass panel (legacy wrapper)
 //==============================================================================
+
+void AnalogSynthLookAndFeel::drawSectionTitle (juce::Graphics& g, const juce::String& text,
+                                                 juce::Rectangle<float> area,
+                                                 juce::Colour sectionColour, float fontSize)
+{
+    g.setFont (juce::Font (fontSize).boldened());
+
+    // Subtle glow behind text (section color at low alpha)
+    g.setColour (sectionColour.withAlpha (0.06f));
+    g.drawText (text, area.expanded (2, 1), juce::Justification::centredLeft, false);
+
+    // Dark inset shadow
+    g.setColour (juce::Colours::black.withAlpha (0.3f));
+    g.drawText (text, area.translated (0, -0.5f), juce::Justification::centredLeft, false);
+
+    // Light catch edge
+    g.setColour (juce::Colours::white.withAlpha (0.04f));
+    g.drawText (text, area.translated (0, 1.0f), juce::Justification::centredLeft, false);
+
+    // Main title in section color
+    g.setColour (sectionColour);
+    g.drawText (text, area, juce::Justification::centredLeft, false);
+}
 
 void AnalogSynthLookAndFeel::drawGlassPanel (juce::Graphics& g, juce::Rectangle<float> area,
                                                float cornerRadius)
