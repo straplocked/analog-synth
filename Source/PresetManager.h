@@ -102,11 +102,18 @@ private:
             presetNames.push_back (f.getFileNameWithoutExtension());
     }
 
+    static constexpr int kFactoryPresetVersion = 2;
+
     void buildFactoryPresets()
     {
-        // Only create factory presets if directory is empty
-        auto existing = presetDirectory.findChildFiles (juce::File::findFiles, false, "*.xml");
-        if (existing.size() > 0) return;
+        // Check version marker — rebuild factory presets when version changes
+        auto markerFile = presetDirectory.getChildFile ("_factory_v" + juce::String (kFactoryPresetVersion) + ".marker");
+        if (markerFile.existsAsFile()) return;
+
+        // Remove old version markers
+        auto oldMarkers = presetDirectory.findChildFiles (juce::File::findFiles, false, "_factory_v*.marker");
+        for (auto& m : oldMarkers)
+            m.deleteFile();
 
         createFactoryPreset ("01 - Classic Saw Pad", [] (juce::AudioProcessorValueTreeState& a) {
             setParam (a, "osc1_waveform", 0.0f);   // Saw
@@ -324,6 +331,140 @@ private:
             setParam (a, "chorus_mix", 0.35f);
             setParam (a, "global_slop", 0.3f);
         });
+
+        // --- v2 factory presets (new features) ---
+
+        createFactoryPreset ("11 - Acid Squelch", [] (juce::AudioProcessorValueTreeState& a) {
+            setParam (a, "osc1_waveform", 0.0f);    // Saw
+            setParam (a, "osc1_level", 1.0f);
+            setParam (a, "osc1_octave", -1.0f);
+            setParam (a, "lpf_type", 3.0f);          // Acid filter
+            setParam (a, "lpf_slope", 1.0f);          // 24dB
+            setParam (a, "lpf_cutoff", 400.0f);
+            setParam (a, "lpf_resonance", 0.7f);
+            setParam (a, "lpf_envAmount", 6000.0f);
+            setParam (a, "lpf_drive", 1.5f);
+            setParam (a, "filterEnv_attack", 0.001f);
+            setParam (a, "filterEnv_decay", 0.2f);
+            setParam (a, "filterEnv_sustain", 0.0f);
+            setParam (a, "filterEnv_release", 0.1f);
+            setParam (a, "ampEnv_attack", 0.001f);
+            setParam (a, "ampEnv_decay", 0.3f);
+            setParam (a, "ampEnv_sustain", 0.0f);
+            setParam (a, "ampEnv_release", 0.15f);
+            setParam (a, "global_glide", 1.0f);
+            setParam (a, "global_glideTime", 0.05f);
+            setParam (a, "global_monoMode", 1.0f);
+            setParam (a, "delay_enabled", 1.0f);
+            setParam (a, "delay_time", 0.188f);
+            setParam (a, "delay_feedback", 0.3f);
+            setParam (a, "delay_mix", 0.15f);
+        });
+
+        createFactoryPreset ("12 - MS20 Growl", [] (juce::AudioProcessorValueTreeState& a) {
+            setParam (a, "osc1_waveform", 0.0f);    // Saw
+            setParam (a, "osc1_level", 0.8f);
+            setParam (a, "osc3_waveform", 0.0f);     // Saw
+            setParam (a, "osc3_level", 0.7f);
+            setParam (a, "osc3_fine", -8.0f);         // Detuned
+            setParam (a, "lpf_type", 4.0f);           // MS20 filter
+            setParam (a, "lpf_slope", 0.0f);          // 12dB
+            setParam (a, "lpf_cutoff", 1200.0f);
+            setParam (a, "lpf_resonance", 0.5f);
+            setParam (a, "lpf_envAmount", 3000.0f);
+            setParam (a, "lpf_drive", 2.0f);
+            setParam (a, "filterEnv_attack", 0.01f);
+            setParam (a, "filterEnv_decay", 0.4f);
+            setParam (a, "filterEnv_sustain", 0.3f);
+            setParam (a, "filterEnv_release", 0.3f);
+            setParam (a, "ampEnv_attack", 0.01f);
+            setParam (a, "ampEnv_decay", 0.3f);
+            setParam (a, "ampEnv_sustain", 0.6f);
+            setParam (a, "ampEnv_release", 0.4f);
+            setParam (a, "global_slop", 0.4f);
+        });
+
+        createFactoryPreset ("13 - Triple Osc Pad", [] (juce::AudioProcessorValueTreeState& a) {
+            setParam (a, "osc1_waveform", 0.0f);    // Saw
+            setParam (a, "osc1_level", 0.6f);
+            setParam (a, "osc2_waveform", 2.0f);     // Triangle
+            setParam (a, "osc2_level", 0.5f);
+            setParam (a, "osc2_octave", 1.0f);
+            setParam (a, "osc3_waveform", 1.0f);     // Pulse
+            setParam (a, "osc3_level", 0.4f);
+            setParam (a, "osc3_pulseWidth", 0.4f);
+            setParam (a, "osc3_fine", 5.0f);
+            setParam (a, "lpf_type", 2.0f);           // Sequential SVF
+            setParam (a, "lpf_cutoff", 2000.0f);
+            setParam (a, "lpf_resonance", 0.15f);
+            setParam (a, "filterEnv_attack", 0.8f);
+            setParam (a, "filterEnv_decay", 1.0f);
+            setParam (a, "filterEnv_sustain", 0.5f);
+            setParam (a, "filterEnv_release", 2.0f);
+            setParam (a, "ampEnv_attack", 0.6f);
+            setParam (a, "ampEnv_decay", 0.5f);
+            setParam (a, "ampEnv_sustain", 0.7f);
+            setParam (a, "ampEnv_release", 2.5f);
+            setParam (a, "chorus_enabled", 1.0f);
+            setParam (a, "chorus_depth", 0.4f);
+            setParam (a, "chorus_mix", 0.3f);
+            setParam (a, "reverb_enabled", 1.0f);
+            setParam (a, "reverb_size", 0.8f);
+            setParam (a, "reverb_mix", 0.35f);
+            setParam (a, "global_slop", 0.3f);
+        });
+
+        createFactoryPreset ("14 - Deep Sub Sine", [] (juce::AudioProcessorValueTreeState& a) {
+            setParam (a, "osc1_waveform", 1.0f);    // Pulse
+            setParam (a, "osc1_pulseWidth", 0.5f);
+            setParam (a, "osc1_level", 0.7f);
+            setParam (a, "sub_level", 0.8f);
+            setParam (a, "sub_waveform", 0.0f);       // Sine sub
+            setParam (a, "sub_octave", 1.0f);          // -2 Oct
+            setParam (a, "lfo_toOscShape", 0.25f);     // PWM
+            setParam (a, "lfo_rate", 0.4f);
+            setParam (a, "lpf_cutoff", 1500.0f);
+            setParam (a, "lpf_resonance", 0.1f);
+            setParam (a, "lpf_envAmount", 2000.0f);
+            setParam (a, "filterEnv_attack", 0.001f);
+            setParam (a, "filterEnv_decay", 0.4f);
+            setParam (a, "filterEnv_sustain", 0.3f);
+            setParam (a, "filterEnv_release", 0.3f);
+            setParam (a, "ampEnv_attack", 0.001f);
+            setParam (a, "ampEnv_decay", 0.4f);
+            setParam (a, "ampEnv_sustain", 0.7f);
+            setParam (a, "ampEnv_release", 0.3f);
+        });
+
+        createFactoryPreset ("15 - Acid Unison", [] (juce::AudioProcessorValueTreeState& a) {
+            setParam (a, "osc1_waveform", 0.0f);    // Saw
+            setParam (a, "osc1_level", 0.9f);
+            setParam (a, "sub_level", 0.5f);
+            setParam (a, "sub_waveform", 2.0f);       // Square sub
+            setParam (a, "global_unison", 1.0f);
+            setParam (a, "global_unisonDetune", 12.0f);
+            setParam (a, "global_unisonSpread", 0.7f);
+            setParam (a, "lpf_type", 3.0f);           // Acid filter
+            setParam (a, "lpf_cutoff", 600.0f);
+            setParam (a, "lpf_resonance", 0.55f);
+            setParam (a, "lpf_envAmount", 5000.0f);
+            setParam (a, "lpf_drive", 1.3f);
+            setParam (a, "filterEnv_attack", 0.001f);
+            setParam (a, "filterEnv_decay", 0.35f);
+            setParam (a, "filterEnv_sustain", 0.1f);
+            setParam (a, "filterEnv_release", 0.2f);
+            setParam (a, "ampEnv_attack", 0.01f);
+            setParam (a, "ampEnv_sustain", 0.7f);
+            setParam (a, "ampEnv_release", 0.4f);
+            setParam (a, "global_slop", 0.5f);
+            setParam (a, "dist_enabled", 1.0f);
+            setParam (a, "dist_drive", 0.2f);
+            setParam (a, "dist_mix", 0.1f);
+        });
+
+        // Write version marker
+        markerFile.create();
+        markerFile.replaceWithText ("Factory presets version " + juce::String (kFactoryPresetVersion));
     }
 
     void createFactoryPreset (const juce::String& name,

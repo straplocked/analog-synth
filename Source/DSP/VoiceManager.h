@@ -8,6 +8,9 @@
 
 class VoiceManager
 {
+    juce::Random rng;
+
+
 public:
     static constexpr int kMaxVoices = 6;
 

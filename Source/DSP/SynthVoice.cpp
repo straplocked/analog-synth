@@ -1,4 +1,6 @@
 #include "SynthVoice.h"
+#include "FastMath.h"
+#include "../Utility/DebugLog.h"
 
 void SynthVoice::prepare (double newSampleRate, int samplesPerBlock)
 {
@@ -9,17 +11,18 @@ void SynthVoice::prepare (double newSampleRate, int samplesPerBlock)
     // Prepare all DSP at oversampled rate
     osc1.prepare (oversampledRate);
     osc2.prepare (oversampledRate);
+    osc3.prepare (oversampledRate);
     subOsc.prepare (oversampledRate);
     lfo.prepare (oversampledRate);
 
     filterEnv.prepare (oversampledRate);
     ampEnv.prepare (oversampledRate);
-    lpf.prepare (oversampledRate);
-    diodeLpf.prepare (oversampledRate);
+    filterEngine.prepare (oversampledRate);
     hpf.prepare (oversampledRate);
 
     osc1Buffer.allocate (samplesPerBlock, true);
     osc2Buffer.allocate (samplesPerBlock, true);
+    osc3Buffer.allocate (samplesPerBlock, true);
     subBuffer.allocate (samplesPerBlock, true);
     noiseBuffer.allocate (samplesPerBlock, true);
 
@@ -30,6 +33,7 @@ void SynthVoice::prepare (double newSampleRate, int samplesPerBlock)
     // Prepare pink noise generators with unique seeds
     phaseJitter1.prepare (54321);
     phaseJitter2.prepare (98765);
+    phaseJitter3.prepare (24680);
     noiseFloor.prepare (13579);
 }
 
@@ -51,6 +55,7 @@ void SynthVoice::noteOn (int midiNote, float velocity)
         // Snap to target immediately
         currentFreq1 = baseFreq1;
         currentFreq2 = baseFreq2;
+        currentFreq3 = baseFreq3;
     }
 
     filterEnv.noteOn (velocity);
@@ -76,8 +81,14 @@ void SynthVoice::setOsc2Waveform (int waveformIndex)
     osc2.setWaveform (static_cast<PolyBLEPOscillator::Waveform> (waveformIndex));
 }
 
+void SynthVoice::setOsc3Waveform (int waveformIndex)
+{
+    osc3.setWaveform (static_cast<PolyBLEPOscillator::Waveform> (waveformIndex));
+}
+
 void SynthVoice::setOsc1PulseWidth (float pw) { basePW1 = pw; osc1.setPulseWidth (pw); }
 void SynthVoice::setOsc2PulseWidth (float pw) { osc2.setPulseWidth (pw); }
+void SynthVoice::setOsc3PulseWidth (float pw) { osc3.setPulseWidth (pw); }
 
 void SynthVoice::setOsc1Tuning (int octave, int semitone, float fine)
 {
@@ -97,19 +108,39 @@ void SynthVoice::setOsc2Tuning (int octave, int semitone, float fine)
         updateOscillatorFrequencies();
 }
 
-void SynthVoice::setMixerLevels (float o1, float o2, float sub, float n)
+void SynthVoice::setOsc3Tuning (int octave, int semitone, float fine)
+{
+    osc3Octave = octave;
+    osc3Semitone = semitone;
+    osc3Fine = fine;
+    if (currentNote >= 0)
+        updateOscillatorFrequencies();
+}
+
+void SynthVoice::setSubWaveform (int waveformIndex)
+{
+    subOsc.setWaveform (static_cast<SubOscillator::Waveform> (waveformIndex));
+}
+
+void SynthVoice::setSubOctave (int octaveChoice)
+{
+    subOsc.setOctave (octaveChoice == 0 ? -1 : -2);
+}
+
+void SynthVoice::setMixerLevels (float o1, float o2, float o3, float sub, float n)
 {
     mixer.setOsc1Level (o1);
     mixer.setOsc2Level (o2);
+    mixer.setOsc3Level (o3);
     mixer.setSubLevel (sub);
     mixer.setNoiseLevel (n);
 }
 
 void SynthVoice::setFilterCutoff (float hz)        { baseCutoff = hz; }
-void SynthVoice::setFilterResonance (float res)     { filterResonance = res; lpf.setResonance (res); diodeLpf.setResonance (res); }
+void SynthVoice::setFilterResonance (float res)     { filterResonance = res; filterEngine.setResonance (res); }
 void SynthVoice::setFilterEnvAmount (float amount)  { filterEnvAmount = amount; }
 void SynthVoice::setFilterKeyFollow (float amount)  { filterKeyFollow = amount; }
-void SynthVoice::setFilterDrive (float driveAmount) { filterDrive = driveAmount; lpf.setDrive (driveAmount); diodeLpf.setDrive (driveAmount); }
+void SynthVoice::setFilterDrive (float driveAmount) { filterDrive = driveAmount; filterEngine.setDrive (driveAmount); }
 void SynthVoice::setHPFCutoff (float hz)            { baseHpfCutoff = hz; hpf.setCutoff (hz); }
 
 void SynthVoice::setFilterEnvParams (float attack, float decay, float sustain, float release)
@@ -146,6 +177,7 @@ void SynthVoice::setNote (int midiNote)
     {
         currentFreq1 = baseFreq1;
         currentFreq2 = baseFreq2;
+        currentFreq3 = baseFreq3;
     }
 }
 
@@ -203,13 +235,13 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
     bool hasLFO = lfoAmounts.isActive();
 
     // Pitch bend multiplier (constant for the block)
-    float pbMul = std::pow (2.0f, std::clamp (pitchBendSemitones, -24.0f, 24.0f) / 12.0f);
+    float pbMul = FastMath::exp2 (std::clamp (pitchBendSemitones, -24.0f, 24.0f) / 12.0f);
 
     // Pitch drift multiplier from analog slop
-    float driftMul = std::pow (2.0f, pitchDriftCents / 1200.0f);
+    float driftMul = FastMath::exp2 (pitchDriftCents / 1200.0f);
 
     // Unison detune multiplier
-    float unisonMul = std::pow (2.0f, unisonDetuneCents / 1200.0f);
+    float unisonMul = FastMath::exp2 (unisonDetuneCents / 1200.0f);
 
     // Phase jitter amount scaled by slop (very subtle: 0.1% of phase increment at max)
     float jitterScale = slopAmount * 0.001f;
@@ -220,6 +252,7 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         // Apply phase jitter for analog VCO simulation
         osc1.setJitterValue (phaseJitter1.processSample() * jitterScale);
         osc2.setJitterValue (phaseJitter2.processSample() * jitterScale);
+        osc3.setJitterValue (phaseJitter3.processSample() * jitterScale);
 
         // Get modulation sources
         float fenvVal = filterEnv.processSample();
@@ -230,11 +263,13 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         {
             currentFreq1 += glideCoeff * (baseFreq1 - currentFreq1);
             currentFreq2 += glideCoeff * (baseFreq2 - currentFreq2);
+            currentFreq3 += glideCoeff * (baseFreq3 - currentFreq3);
         }
         else
         {
             currentFreq1 = baseFreq1;
             currentFreq2 = baseFreq2;
+            currentFreq3 = baseFreq3;
         }
 
         // Use previous sample's Osc2 output for Poly Mod FM (1-sample delay, inaudible)
@@ -248,11 +283,11 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
             float freqMod = polyMod.fenvToOsc1Freq * fenvVal * 2.0f
                           + polyMod.osc2ToOsc1Freq * osc2ForMod * 0.5f;
             freqMod = std::clamp (freqMod, -10.0f, 10.0f);
-            freq1Mod *= std::pow (2.0f, freqMod);
+            freq1Mod *= FastMath::exp2 (freqMod);
         }
         if (hasLFO && lfoAmounts.toOscFreq != 0.0f)
         {
-            freq1Mod *= std::pow (2.0f, std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
+            freq1Mod *= FastMath::exp2 (std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
         }
         osc1.setFrequency (std::clamp (freq1Mod, 10.0f, 20000.0f));
 
@@ -275,17 +310,30 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         // Generate Osc2 (slave when sync enabled)
         float freq2Mod = currentFreq2 * pbMul * driftMul * unisonMul;
         if (hasLFO && lfoAmounts.toOscFreq != 0.0f)
-            freq2Mod *= std::pow (2.0f, std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
+            freq2Mod *= FastMath::exp2 (std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
         osc2.setFrequency (std::clamp (freq2Mod, 10.0f, 20000.0f));
         float osc2Out = osc2.processSample();
         prevOsc2Out = osc2Out;
 
+        // Generate Osc3 (same modulation as Osc2 minus hard sync)
+        float freq3Mod = currentFreq3 * pbMul * driftMul * unisonMul;
+        if (hasLFO && lfoAmounts.toOscFreq != 0.0f)
+            freq3Mod *= FastMath::exp2 (std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
+        osc3.setFrequency (std::clamp (freq3Mod, 10.0f, 20000.0f));
+        float osc3Out = osc3.processSample();
+
+        // Sub oscillator: apply pitch bend, drift, unison detune, and LFO modulation
+        float subFreq = currentFreq1 * pbMul * driftMul * unisonMul;
+        if (hasLFO && lfoAmounts.toOscFreq != 0.0f)
+            subFreq *= FastMath::exp2 (std::clamp (lfoAmounts.toOscFreq * lfoVal / 12.0f, -2.0f, 2.0f));
+        subOsc.setFrequency (std::clamp (subFreq, 5.0f, 10000.0f));
         float subOut = subOsc.processSample();
         float noiseOut = noise.processSample();
 
         // Mix with asymmetric saturation for analog warmth
         float rawMix = osc1Out * mixer.getOsc1Level()
                      + osc2Out * mixer.getOsc2Level()
+                     + osc3Out * mixer.getOsc3Level()
                      + subOut  * mixer.getSubLevel()
                      + noiseOut * mixer.getNoiseLevel()
                      + dcOffset;
@@ -307,39 +355,31 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
             cutoffMod += modWheelAmount * 3.0f;
 
         cutoffMod = std::clamp (cutoffMod, -10.0f, 10.0f);
-        float modulatedCutoff = std::clamp (baseCutoff * std::pow (2.0f, cutoffMod), 20.0f, 20000.0f);
+        float modulatedCutoff = std::clamp (baseCutoff * FastMath::exp2 (cutoffMod), 20.0f, 20000.0f);
 
         // HPF modulation
         float hpfCut = baseHpfCutoff;
         if (hasPolyMod && polyMod.fenvToHPF != 0.0f)
         {
             float hpfMod = std::clamp (polyMod.fenvToHPF * fenvVal * 3.0f, -10.0f, 10.0f);
-            hpfCut *= std::pow (2.0f, hpfMod);
+            hpfCut *= FastMath::exp2 (hpfMod);
         }
         if (hasPolyMod && polyMod.osc2ToHPF != 0.0f)
         {
             float hpfMod = std::clamp (polyMod.osc2ToHPF * osc2Out * 2.0f, -10.0f, 10.0f);
-            hpfCut *= std::pow (2.0f, hpfMod);
+            hpfCut *= FastMath::exp2 (hpfMod);
         }
         hpf.setCutoff (std::clamp (hpfCut, 20.0f, 20000.0f));
 
-        // Apply low-pass filter (Ladder or Diode)
-        if (filterType == 0)
-        {
-            lpf.setCutoff (modulatedCutoff);
-            mixed = lpf.processSample (mixed);
-        }
-        else
-        {
-            diodeLpf.setCutoff (modulatedCutoff);
-            mixed = diodeLpf.processSample (mixed);
-        }
+        // Apply low-pass filter through FilterEngine
+        filterEngine.setCutoff (modulatedCutoff);
+        mixed = filterEngine.processSample (mixed);
         mixed = hpf.processSample (mixed);
 
         // Amp envelope with VCA
         float ampVal = ampEnv.processSample();
         // Exponential VCA response (60dB dynamic range, models OTA-based VCA)
-        float ampMod = (ampVal <= 0.0001f) ? 0.0f : std::exp (6.9078f * (ampVal - 1.0f));
+        float ampMod = (ampVal <= 0.0001f) ? 0.0f : FastMath::exp (6.9078f * (ampVal - 1.0f));
 
         // LFO tremolo
         if (hasLFO && lfoAmounts.toAmp != 0.0f)
@@ -351,9 +391,9 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         // NaN/Inf safety net: if anything went wrong, output silence
         if (std::isnan (sample) || std::isinf (sample))
         {
+            SYNTH_LOG_ERROR ("NaN/Inf in voice output, note=" + juce::String (currentNote) + " resetting filters");
             sample = 0.0f;
-            lpf.reset();
-            diodeLpf.reset();
+            filterEngine.reset();
             hpf.reset();
         }
 
@@ -374,8 +414,10 @@ void SynthVoice::updateOscillatorFrequencies()
 
     baseFreq1 = noteToFrequency (currentNote, osc1Octave, osc1Semitone, osc1Fine);
     baseFreq2 = noteToFrequency (currentNote, osc2Octave, osc2Semitone, osc2Fine);
+    baseFreq3 = noteToFrequency (currentNote, osc3Octave, osc3Semitone, osc3Fine);
 
     osc1.setFrequency (baseFreq1);
     osc2.setFrequency (baseFreq2);
+    osc3.setFrequency (baseFreq3);
     subOsc.setFrequency (baseFreq1); // Sub follows Osc1
 }

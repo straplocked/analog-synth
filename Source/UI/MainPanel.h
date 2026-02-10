@@ -23,6 +23,7 @@ public:
         addAndMakeVisible (oscAPanel);
         addAndMakeVisible (waveformDisplay);
         addAndMakeVisible (oscBPanel);
+        addAndMakeVisible (oscCPanel);
         addAndMakeVisible (filterPanel);
         addAndMakeVisible (mixerPanel);
         addAndMakeVisible (polyModPanel);
@@ -69,6 +70,7 @@ public:
             keyboard->setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, juce::Colour (0xff333333));
             keyboard->setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId, SynthColours::accent.withAlpha (0.6f));
             keyboard->setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId, SynthColours::accent.withAlpha (0.2f));
+            keyboard->setVelocity (1.0f, false);
             keyboard->setKeyWidth (18.0f);
             keyboard->setAvailableRange (36, 96);  // C2 to C7
             keyboard->setKeyPressBaseOctave (currentOctave);
@@ -100,6 +102,14 @@ public:
                           ParameterIDs::osc2PulseWidth,
                           ParameterIDs::osc2Level,
                           ParameterIDs::osc2Sync);
+
+        oscCPanel.attach (apvts,
+                          ParameterIDs::osc3Waveform,
+                          ParameterIDs::osc3Octave,
+                          ParameterIDs::osc3Semitone,
+                          ParameterIDs::osc3Fine,
+                          ParameterIDs::osc3PulseWidth,
+                          ParameterIDs::osc3Level);
 
         filterPanel.attach (apvts);
         mixerPanel.attach (apvts);
@@ -194,11 +204,13 @@ public:
         bounds.removeFromBottom (2);
 
         // Middle area splits into two rows
-        // Row 1 (top): OSC A | Waveform | OSC B — 200px
+        // Row 1 (top): OSC A | OSC B | OSC C | Waveform — 200px
         auto topRow = bounds.removeFromTop (200);
-        int oscW = (topRow.getWidth() - 250) / 2;
+        int waveW = 220;
+        int oscW = (topRow.getWidth() - waveW) / 3;
         oscAPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
-        oscBPanel.setBounds (topRow.removeFromRight (oscW).reduced (4));
+        oscBPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
+        oscCPanel.setBounds (topRow.removeFromLeft (oscW).reduced (4));
         waveformDisplay.setBounds (topRow.reduced (4));
 
         // Row 2 (bottom): Filter | Mixer | PolyMod
@@ -258,8 +270,9 @@ private:
 
     HeaderPanel     headerPanel;
     OscillatorPanel oscAPanel  { "OSC A", SynthColours::sectionOsc };
-    WaveformDisplay waveformDisplay;
     OscillatorPanel oscBPanel  { "OSC B", SynthColours::sectionOsc, true };  // showSync
+    OscillatorPanel oscCPanel  { "OSC C", SynthColours::sectionOsc };
+    WaveformDisplay waveformDisplay;
     FilterPanel     filterPanel;
     MixerPanel      mixerPanel;
     PolyModPanel    polyModPanel;

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include "FastMath.h"
 
 class LadderFilter
 {
@@ -29,6 +30,8 @@ public:
         drive = std::max (1.0f, driveAmount);
     }
 
+    void setTwoPole (bool enabled) { twoPole = enabled; }
+
     float processSample (float input)
     {
         // TPT (Topology-Preserving Transform) ladder filter
@@ -38,17 +41,18 @@ public:
         float drivenInput = std::tanh (input * drive);
 
         // Resonance volume compensation — real analog filters lose bass at high resonance
-        drivenInput *= 1.0f / (1.0f + resonance * 0.25f);
+        drivenInput *= 1.0f / (1.0f + resonance * 0.15f);
 
-        // Feedback with nonlinear saturation
-        float feedback = resonance * std::tanh (stage[3]);
+        // Feedback with nonlinear saturation (tap from output stage)
+        int outputStage = twoPole ? 1 : 3;
+        float feedback = resonance * std::tanh (stage[outputStage]);
 
         // Input with feedback subtracted
         float u = drivenInput - feedback;
 
-        // Four cascaded one-pole stages with saturation
-        // Using proper TPT resolving factor: G = g / (1 + g)
-        for (int i = 0; i < 4; ++i)
+        // Cascaded one-pole stages with saturation
+        int numStages = twoPole ? 2 : 4;
+        for (int i = 0; i < numStages; ++i)
         {
             float v = G * (std::tanh (u) - state[i]);
             float y = v + state[i];
@@ -57,7 +61,7 @@ public:
             u = y;
         }
 
-        return stage[3];
+        return stage[outputStage];
     }
 
     void reset()
@@ -76,6 +80,7 @@ private:
     float drive = 1.0f;
 
     // TPT coefficients
+    bool twoPole = false;
     float g = 0.0f;  // tan(pi * fc / fs)
     float G = 0.0f;  // g / (1 + g) — resolved one-pole gain
 
@@ -88,7 +93,7 @@ private:
         // g = tan(pi * cutoff / sampleRate)
         float wd = 2.0f * static_cast<float> (M_PI) * cutoff;
         float T = 1.0f / static_cast<float> (sampleRate);
-        g = std::tan (wd * T / 2.0f);
+        g = FastMath::tan (wd * T / 2.0f);
 
         // Clamp g to prevent instability at extreme cutoff near Nyquist
         g = std::min (g, 10.0f);

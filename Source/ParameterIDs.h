@@ -21,14 +21,25 @@ namespace ParameterIDs
     inline constexpr auto osc2Level      = "osc2_level";
     inline constexpr auto osc2Sync       = "osc2_sync";
 
+    // Oscillator 3
+    inline constexpr auto osc3Waveform   = "osc3_waveform";
+    inline constexpr auto osc3Octave     = "osc3_octave";
+    inline constexpr auto osc3Semitone   = "osc3_semitone";
+    inline constexpr auto osc3Fine       = "osc3_fine";
+    inline constexpr auto osc3PulseWidth = "osc3_pulseWidth";
+    inline constexpr auto osc3Level      = "osc3_level";
+
     // Sub Oscillator
-    inline constexpr auto subLevel = "sub_level";
+    inline constexpr auto subLevel    = "sub_level";
+    inline constexpr auto subWaveform = "sub_waveform";
+    inline constexpr auto subOctave   = "sub_octave";
 
     // Noise
     inline constexpr auto noiseLevel = "noise_level";
 
     // Low-Pass Filter
     inline constexpr auto lpfType      = "lpf_type";
+    inline constexpr auto lpfSlope     = "lpf_slope";
     inline constexpr auto lpfCutoff    = "lpf_cutoff";
     inline constexpr auto lpfResonance = "lpf_resonance";
     inline constexpr auto lpfEnvAmount = "lpf_envAmount";

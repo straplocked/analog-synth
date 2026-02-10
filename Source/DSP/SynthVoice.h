@@ -6,8 +6,7 @@
 #include "NoiseGenerator.h"
 #include "Mixer.h"
 #include "ADSREnvelope.h"
-#include "LadderFilter.h"
-#include "DiodeLadderFilter.h"
+#include "FilterEngine.h"
 #include "StateVariableHPF.h"
 #include "LFO.h"
 #include "PolyModRouter.h"
@@ -30,11 +29,18 @@ public:
     // Oscillators
     void setOsc1Waveform (int waveformIndex);
     void setOsc2Waveform (int waveformIndex);
+    void setOsc3Waveform (int waveformIndex);
     void setOsc1PulseWidth (float pw);
     void setOsc2PulseWidth (float pw);
+    void setOsc3PulseWidth (float pw);
     void setOsc1Tuning (int octave, int semitone, float fine);
     void setOsc2Tuning (int octave, int semitone, float fine);
-    void setMixerLevels (float osc1, float osc2, float sub, float noise);
+    void setOsc3Tuning (int octave, int semitone, float fine);
+    void setMixerLevels (float osc1, float osc2, float osc3, float sub, float noise);
+
+    // Sub oscillator
+    void setSubWaveform (int waveformIndex);
+    void setSubOctave (int octaveChoice);
 
     // Filter
     void setFilterCutoff (float hz);
@@ -60,8 +66,9 @@ public:
     // Hard sync
     void setSyncEnabled (bool enabled) { syncEnabled = enabled; }
 
-    // Filter type
-    void setFilterType (int type) { filterType = type; }
+    // Filter type and slope
+    void setFilterType (int type) { filterEngine.setType (type); }
+    void setFilterSlope (int slope) { filterEngine.setSlope (slope); }
 
     // Analog drift / imperfections
     void setPitchDriftCents (float cents) { pitchDriftCents = cents; }
@@ -75,6 +82,15 @@ public:
     // Unison detune
     void setUnisonDetune (float cents) { unisonDetuneCents = cents; }
 
+    // Phase randomization for unison voices
+    void setStartPhase (float phase01)
+    {
+        osc1.setPhase (static_cast<double> (phase01));
+        osc2.setPhase (static_cast<double> (std::fmod (phase01 + 0.37f, 1.0f)));
+        osc3.setPhase (static_cast<double> (std::fmod (phase01 + 0.73f, 1.0f)));
+        subOsc.setPhase (static_cast<double> (std::fmod (phase01 + 0.61f, 1.0f)));
+    }
+
     // Legato: change pitch without retriggering envelopes
     void setNote (int midiNote);
 
@@ -87,16 +103,15 @@ public:
 private:
     PolyBLEPOscillator osc1;
     PolyBLEPOscillator osc2;
+    PolyBLEPOscillator osc3;
     SubOscillator subOsc;
     NoiseGenerator noise;
     Mixer mixer;
 
     ADSREnvelope filterEnv;
     ADSREnvelope ampEnv;
-    LadderFilter lpf;
-    DiodeLadderFilter diodeLpf;
+    FilterEngine filterEngine;
     StateVariableHPF hpf;
-    int filterType = 0; // 0=Ladder, 1=Diode
     LFO lfo;
 
     PolyModAmounts polyMod;
@@ -111,10 +126,13 @@ private:
     float osc1Fine = 0.0f;
     int osc2Octave = 0, osc2Semitone = 0;
     float osc2Fine = 0.0f;
+    int osc3Octave = 0, osc3Semitone = 0;
+    float osc3Fine = 0.0f;
 
     // Base oscillator frequencies (cached)
     float baseFreq1 = 440.0f;
     float baseFreq2 = 440.0f;
+    float baseFreq3 = 440.0f;
     float basePW1 = 0.5f;
 
     // Filter parameters
@@ -126,7 +144,7 @@ private:
     float baseHpfCutoff = 20.0f;
 
     // Temp buffers
-    juce::HeapBlock<float> osc1Buffer, osc2Buffer, subBuffer, noiseBuffer;
+    juce::HeapBlock<float> osc1Buffer, osc2Buffer, osc3Buffer, subBuffer, noiseBuffer;
     int maxBlockSize = 0;
 
     bool lfoKeySync = false;
@@ -141,6 +159,7 @@ private:
     float slopAmount = 0.0f;
     PinkNoise phaseJitter1;
     PinkNoise phaseJitter2;
+    PinkNoise phaseJitter3;
     PinkNoise noiseFloor;
 
     // Performance controllers
@@ -153,6 +172,7 @@ private:
     float glideCoeff = 0.0f;
     float currentFreq1 = 440.0f; // smoothed towards baseFreq1
     float currentFreq2 = 440.0f; // smoothed towards baseFreq2
+    float currentFreq3 = 440.0f; // smoothed towards baseFreq3
 
     // Unison
     float unisonDetuneCents = 0.0f;

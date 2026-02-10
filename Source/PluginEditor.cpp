@@ -4,7 +4,7 @@ AnalogSynthEditor::AnalogSynthEditor (AnalogSynthProcessor& p)
     : AudioProcessorEditor (p)
 {
     setLookAndFeel (&lookAndFeel);
-    setSize (1200, 750);
+    setSize (1400, 800);
 
     mainPanel.attach (p.apvts);
     mainPanel.setPresetManager (&p.presetManager);

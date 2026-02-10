@@ -11,6 +11,14 @@ class FilterPanel : public juce::Component
 public:
     FilterPanel()
     {
+        typeSelector.addItemList ({"Ladder", "Diode", "Sequential", "Acid", "MS20"}, 1);
+        typeSelector.setSelectedId (1, juce::dontSendNotification);
+        addAndMakeVisible (typeSelector);
+
+        slopeSelector.addItemList ({"12dB", "24dB"}, 1);
+        slopeSelector.setSelectedId (2, juce::dontSendNotification);
+        addAndMakeVisible (slopeSelector);
+
         cutoffKnob    = std::make_unique<RotaryKnob> ("CUTOFF", "Hz");
         resonanceKnob = std::make_unique<RotaryKnob> ("RES", "");
         envAmountKnob = std::make_unique<RotaryKnob> ("ENV", "");
@@ -27,6 +35,11 @@ public:
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
+        typeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+            apvts, ParameterIDs::lpfType, typeSelector);
+        slopeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+            apvts, ParameterIDs::lpfSlope, slopeSelector);
+
         cutoffKnob->attach (apvts, ParameterIDs::lpfCutoff);
         resonanceKnob->attach (apvts, ParameterIDs::lpfResonance);
         envAmountKnob->attach (apvts, ParameterIDs::lpfEnvAmount);
@@ -58,6 +71,15 @@ public:
         auto bounds = getLocalBounds().reduced (6);
         bounds.removeFromTop (20);
 
+        // Combo row: type selector | slope selector
+        auto comboRow = bounds.removeFromTop (24);
+        comboRow.removeFromLeft (2);
+        slopeSelector.setBounds (comboRow.removeFromRight (70).reduced (2, 0));
+        comboRow.removeFromRight (4);
+        typeSelector.setBounds (comboRow.reduced (2, 0));
+
+        bounds.removeFromTop (4);
+
         auto knobs = getKnobs();
         int numKnobs = static_cast<int> (knobs.size());
         int knobW = bounds.getWidth() / numKnobs;
@@ -74,8 +96,12 @@ private:
                  keyFollowKnob.get(), driveKnob.get(), hpfKnob.get() };
     }
 
+    juce::ComboBox typeSelector;
+    juce::ComboBox slopeSelector;
     std::unique_ptr<RotaryKnob> cutoffKnob, resonanceKnob, envAmountKnob,
                                  keyFollowKnob, driveKnob, hpfKnob;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> typeAttach, slopeAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FilterPanel)
 };

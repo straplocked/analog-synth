@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include "FastMath.h"
 
 class StateVariableHPF
 {
@@ -53,6 +54,6 @@ private:
     {
         float wd = 2.0f * static_cast<float> (M_PI) * cutoff;
         float T = 1.0f / static_cast<float> (sampleRate);
-        g = std::tan (wd * T / 2.0f);
+        g = FastMath::tan (wd * T / 2.0f);
     }
 };

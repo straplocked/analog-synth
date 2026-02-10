@@ -8,11 +8,13 @@ class Mixer
 public:
     void setOsc1Level (float level) { osc1Level = level; }
     void setOsc2Level (float level) { osc2Level = level; }
+    void setOsc3Level (float level) { osc3Level = level; }
     void setSubLevel (float level)  { subLevel = level; }
     void setNoiseLevel (float level) { noiseLevel = level; }
 
     float getOsc1Level() const { return osc1Level; }
     float getOsc2Level() const { return osc2Level; }
+    float getOsc3Level() const { return osc3Level; }
     float getSubLevel() const  { return subLevel; }
     float getNoiseLevel() const { return noiseLevel; }
 
@@ -35,6 +37,7 @@ public:
 private:
     float osc1Level = 0.8f;
     float osc2Level = 0.0f;
+    float osc3Level = 0.0f;
     float subLevel  = 0.0f;
     float noiseLevel = 0.0f;
 };

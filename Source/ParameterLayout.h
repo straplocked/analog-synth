@@ -51,16 +51,42 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ParameterIDs::osc2Sync, 1 }, "Osc2 Sync", false));
 
+    // ---- Oscillator 3 ----
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::osc3Waveform, 1 }, "Osc3 Waveform",
+        juce::StringArray { "Saw", "Pulse", "Triangle", "Square" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { ParameterIDs::osc3Octave, 1 }, "Osc3 Octave", -2, 2, 0));
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { ParameterIDs::osc3Semitone, 1 }, "Osc3 Semitone", -12, 12, 0));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::osc3Fine, 1 }, "Osc3 Fine",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::osc3PulseWidth, 1 }, "Osc3 PW",
+        juce::NormalisableRange<float> (0.05f, 0.95f, 0.01f), 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::osc3Level, 1 }, "Osc3 Level", pctRange, 0.0f));
+
     // ---- Sub & Noise ----
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::subLevel, 1 }, "Sub Level", pctRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::subWaveform, 1 }, "Sub Waveform",
+        juce::StringArray { "Sine", "Triangle", "Square", "Pulse" }, 1));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::subOctave, 1 }, "Sub Octave",
+        juce::StringArray { "-1 Oct", "-2 Oct" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::noiseLevel, 1 }, "Noise Level", pctRange, 0.0f));
 
     // ---- Low-Pass Filter ----
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ParameterIDs::lpfType, 1 }, "LPF Type",
-        juce::StringArray { "Ladder", "Diode" }, 0));
+        juce::StringArray { "Ladder", "Diode", "Sequential", "Acid", "MS20" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::lpfSlope, 1 }, "LPF Slope",
+        juce::StringArray { "12dB", "24dB" }, 1));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::lpfCutoff, 1 }, "LPF Cutoff", freqRange, 8000.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include "FastMath.h"
 
 class DiodeLadderFilter
 {
@@ -20,14 +21,17 @@ public:
 
     void setResonance (float res)
     {
-        // Input range 0-1, internal range 0-17 (diode ladder has higher feedback range)
-        resonance = std::clamp (res, 0.0f, 1.0f) * 17.0f;
+        // Input range 0-1, internal range 0-8 (diode ladder needs more feedback
+        // than standard ladder due to weighted-sum tapping, but 17 was excessive)
+        resonance = std::clamp (res, 0.0f, 1.0f) * 8.0f;
     }
 
     void setDrive (float driveAmount)
     {
         drive = std::max (1.0f, driveAmount);
     }
+
+    void setTwoPole (bool enabled) { twoPole = enabled; }
 
     float processSample (float input)
     {
@@ -38,16 +42,22 @@ public:
         float drivenInput = diodeClip (input * drive);
 
         // Resonance compensation
-        drivenInput *= 1.0f / (1.0f + resonance * 0.15f);
+        drivenInput *= 1.15f / (1.0f + resonance * 0.08f);
 
-        // Feedback from weighted sum of all stages (diode ladder characteristic)
-        float feedback = resonance * (stage[3] * 0.5f + stage[2] * 0.3f + stage[1] * 0.15f + stage[0] * 0.05f);
+        // Feedback from weighted sum of stages (diode ladder characteristic)
+        int outputStage = twoPole ? 1 : 3;
+        float feedback;
+        if (twoPole)
+            feedback = resonance * (stage[1] * 0.7f + stage[0] * 0.3f);
+        else
+            feedback = resonance * (stage[3] * 0.5f + stage[2] * 0.3f + stage[1] * 0.15f + stage[0] * 0.05f);
         feedback = std::tanh (feedback);
 
         float u = drivenInput - feedback;
 
-        // Four cascaded one-pole stages with asymmetric diode clipping
-        for (int i = 0; i < 4; ++i)
+        // Cascaded one-pole stages with asymmetric diode clipping
+        int numStages = twoPole ? 2 : 4;
+        for (int i = 0; i < numStages; ++i)
         {
             float v = G * (diodeClip (u) - state[i]);
             float y = v + state[i];
@@ -57,7 +67,7 @@ public:
         }
 
         // DC blocker (5Hz high-pass) to prevent DC offset from asymmetric clipping
-        float out = stage[3];
+        float out = stage[outputStage];
         float dcBlocked = out - dcState + 0.9999f * dcPrev;
         dcState = out;
         dcPrev = dcBlocked;
@@ -81,6 +91,8 @@ private:
     float cutoff = 8000.0f;
     float resonance = 0.0f;
     float drive = 1.0f;
+
+    bool twoPole = false;
 
     // TPT coefficients
     float g = 0.0f;
@@ -107,7 +119,7 @@ private:
     {
         float wd = 2.0f * static_cast<float> (M_PI) * cutoff;
         float T = 1.0f / static_cast<float> (sampleRate);
-        g = std::tan (wd * T / 2.0f);
+        g = FastMath::tan (wd * T / 2.0f);
         g = std::min (g, 10.0f);
         G = g / (1.0f + g);
     }

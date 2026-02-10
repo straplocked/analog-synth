@@ -1,5 +1,6 @@
 #include "VoiceManager.h"
 #include "../ParameterIDs.h"
+#include "../Utility/DebugLog.h"
 
 void VoiceManager::prepare (double newSampleRate, int newSamplesPerBlock)
 {
@@ -54,6 +55,7 @@ void VoiceManager::noteOnPoly (int midiNote, float velocity)
     int existing = findVoicePlaying (midiNote);
     if (existing >= 0)
     {
+        SYNTH_LOG_VOICE ("POLY retrigger: note=" + juce::String (midiNote) + " voice=" + juce::String (existing));
         voices[existing].noteOn (midiNote, velocity);
         voiceAge[existing] = nextAge++;
         return;
@@ -61,7 +63,14 @@ void VoiceManager::noteOnPoly (int midiNote, float velocity)
 
     int voiceIdx = findFreeVoice();
     if (voiceIdx < 0)
+    {
         voiceIdx = findVoiceToSteal();
+        SYNTH_LOG_VOICE ("POLY steal: note=" + juce::String (midiNote) + " voice=" + juce::String (voiceIdx));
+    }
+    else
+    {
+        SYNTH_LOG_VOICE ("POLY noteOn: note=" + juce::String (midiNote) + " voice=" + juce::String (voiceIdx));
+    }
 
     voices[voiceIdx].noteOn (midiNote, velocity);
     voiceAge[voiceIdx] = nextAge++;
@@ -71,20 +80,33 @@ void VoiceManager::noteOffPoly (int midiNote)
 {
     int voiceIdx = findVoicePlaying (midiNote);
     if (voiceIdx >= 0)
+    {
+        SYNTH_LOG_VOICE ("POLY noteOff: note=" + juce::String (midiNote) + " voice=" + juce::String (voiceIdx));
         voices[voiceIdx].noteOff();
+    }
 }
 
 // ---- Mono mode with legato ----
 
 void VoiceManager::noteOnMono (int midiNote, float velocity)
 {
+    // True legato: only skip retrigger when notes actually overlap (held notes exist)
+    // Using isActive() was wrong — it returns true during release phase, causing
+    // notes after noteOff to be treated as legato (no envelope retrigger → silence
+    // for zero-sustain patches)
+    bool legato = ! heldNotes.empty();
     heldNotes.push_back (midiNote);
-    bool legato = voices[0].isActive();
 
     if (legato)
-        voices[0].setNote (midiNote); // change pitch without retriggering
+    {
+        SYNTH_LOG_VOICE ("MONO legato: note=" + juce::String (midiNote));
+        voices[0].setNote (midiNote);
+    }
     else
+    {
+        SYNTH_LOG_VOICE ("MONO noteOn: note=" + juce::String (midiNote) + " vel=" + juce::String (velocity, 2));
         voices[0].noteOn (midiNote, velocity);
+    }
 }
 
 void VoiceManager::noteOffMono (int midiNote)
@@ -94,11 +116,12 @@ void VoiceManager::noteOffMono (int midiNote)
 
     if (! heldNotes.empty())
     {
-        // Return to last held note (legato)
+        SYNTH_LOG_VOICE ("MONO legato return: note=" + juce::String (heldNotes.back()));
         voices[0].setNote (heldNotes.back());
     }
     else
     {
+        SYNTH_LOG_VOICE ("MONO noteOff: note=" + juce::String (midiNote));
         voices[0].noteOff();
     }
 }
@@ -107,20 +130,39 @@ void VoiceManager::noteOffMono (int midiNote)
 
 void VoiceManager::noteOnUnison (int midiNote, float velocity)
 {
+    // True legato: only skip retrigger when notes actually overlap (held notes exist)
+    // Using isActive() was wrong — it returns true during release phase, causing
+    // voices to not retrigger envelopes (same bug mono mode had)
+    bool legato = ! heldNotes.empty();
     heldNotes.push_back (midiNote);
+
+    SYNTH_LOG_VOICE ("UNISON noteOn: note=" + juce::String (midiNote)
+                     + " detune=" + juce::String (unisonDetuneCents, 1) + "ct"
+                     + " spread=" + juce::String (unisonSpread, 2)
+                     + " legato=" + juce::String (legato ? "yes" : "no"));
 
     for (int v = 0; v < kMaxVoices; ++v)
     {
-        // Symmetric detune spread: voice 0 = -max, voice 5 = +max
-        float detuneOffset = (static_cast<float> (v) / static_cast<float> (kMaxVoices - 1) - 0.5f) * 2.0f;
-        float cents = detuneOffset * unisonDetuneCents;
+        // Paired detune: each adjacent pair has one voice detuned up, one down.
+        // This ensures each stereo side has both sharp and flat voices,
+        // preventing systematic L/R energy imbalance from phase cancellation.
+        // v0=-5ct, v1=+5ct, v2=-10ct, v3=+10ct, v4=-15ct, v5=+15ct
+        int pair = v / 2;
+        bool isUpper = (v % 2 == 1);
+        float detuneScale = static_cast<float> (pair + 1) / static_cast<float> (kMaxVoices / 2);
+        float cents = detuneScale * unisonDetuneCents * (isUpper ? 1.0f : -1.0f);
         voices[v].setUnisonDetune (cents);
 
-        bool legato = voices[v].isActive();
         if (legato)
+        {
             voices[v].setNote (midiNote);
+        }
         else
+        {
             voices[v].noteOn (midiNote, velocity);
+            // Start in-phase for a strong attack — detune creates chorus naturally
+            voices[v].setStartPhase (0.0f);
+        }
     }
 }
 
@@ -159,7 +201,10 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
 
     if (unisonEnabled && rightChannel != nullptr)
     {
-        // Unison: per-voice stereo panning
+        // Gain compensation: 1/sqrt(N) preserves perceived loudness without clipping
+        float unisonGain = 1.0f / std::sqrt (static_cast<float> (kMaxVoices));
+
+        // Unison: per-voice stereo panning with gain compensation
         for (int v = 0; v < kMaxVoices; ++v)
         {
             if (! voices[v].isActive())
@@ -167,12 +212,12 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
 
             voices[v].renderBlock (voiceBuffer, numSamples);
 
-            // Pan position: voice 0 = left, voice 5 = right, scaled by spread
-            float pan = (static_cast<float> (v) / static_cast<float> (kMaxVoices - 1)) * unisonSpread;
-            // Convert to 0-1 range centered when spread=0
-            float panPos = 0.5f + (pan - unisonSpread * 0.5f);
-            float gainL = std::cos (panPos * static_cast<float> (M_PI) * 0.5f);
-            float gainR = std::sin (panPos * static_cast<float> (M_PI) * 0.5f);
+            // Normalized voice position: 0 (first) to 1 (last)
+            float t = static_cast<float> (v) / static_cast<float> (kMaxVoices - 1);
+            // Pan position: 0 (hard left) to 1 (hard right), centered when spread=0
+            float panPos = 0.5f + (t - 0.5f) * unisonSpread;
+            float gainL = std::cos (panPos * juce::MathConstants<float>::halfPi) * unisonGain;
+            float gainR = std::sin (panPos * juce::MathConstants<float>::halfPi) * unisonGain;
 
             for (int i = 0; i < numSamples; ++i)
             {
@@ -231,8 +276,10 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         // Oscillators
         voice.setOsc1Waveform (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc1Waveform)->load()));
         voice.setOsc2Waveform (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc2Waveform)->load()));
+        voice.setOsc3Waveform (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc3Waveform)->load()));
         voice.setOsc1PulseWidth (apvts.getRawParameterValue (ParameterIDs::osc1PulseWidth)->load());
         voice.setOsc2PulseWidth (apvts.getRawParameterValue (ParameterIDs::osc2PulseWidth)->load());
+        voice.setOsc3PulseWidth (apvts.getRawParameterValue (ParameterIDs::osc3PulseWidth)->load());
         voice.setSyncEnabled (apvts.getRawParameterValue (ParameterIDs::osc2Sync)->load() > 0.5f);
 
         voice.setOsc1Tuning (
@@ -245,9 +292,19 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
             static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc2Semitone)->load()),
             apvts.getRawParameterValue (ParameterIDs::osc2Fine)->load());
 
+        voice.setOsc3Tuning (
+            static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc3Octave)->load()),
+            static_cast<int> (apvts.getRawParameterValue (ParameterIDs::osc3Semitone)->load()),
+            apvts.getRawParameterValue (ParameterIDs::osc3Fine)->load());
+
+        // Sub oscillator
+        voice.setSubWaveform (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::subWaveform)->load()));
+        voice.setSubOctave (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::subOctave)->load()));
+
         voice.setMixerLevels (
             apvts.getRawParameterValue (ParameterIDs::osc1Level)->load(),
             apvts.getRawParameterValue (ParameterIDs::osc2Level)->load(),
+            apvts.getRawParameterValue (ParameterIDs::osc3Level)->load(),
             apvts.getRawParameterValue (ParameterIDs::subLevel)->load(),
             apvts.getRawParameterValue (ParameterIDs::noiseLevel)->load());
 
@@ -261,8 +318,9 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         if (! unisonEnabled)
             voice.setUnisonDetune (0.0f);
 
-        // Filter type and per-voice analog drift offsets
+        // Filter type, slope, and per-voice analog drift offsets
         voice.setFilterType (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lpfType)->load()));
+        voice.setFilterSlope (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lpfSlope)->load()));
         float cutoff = apvts.getRawParameterValue (ParameterIDs::lpfCutoff)->load();
         cutoff *= drift[v].getFilterOffsetFactor();
 

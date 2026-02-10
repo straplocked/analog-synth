@@ -29,6 +29,7 @@ public:
 
     // Phase jitter for analog VCO simulation (set externally per-sample)
     void setJitterValue (float jitter) { jitterValue = jitter; }
+    void setPhase (double newPhase) { phase = std::fmod (std::abs (newPhase), 1.0); }
 
     // Hard sync: check if master wrapped after processSample()
     bool didPhaseWrap() const { return phaseWrapped; }
