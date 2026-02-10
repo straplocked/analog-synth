@@ -300,9 +300,23 @@ On-screen MIDI keyboard with octave shift buttons (or press **Z** / **X** keys).
 
 ## Presets
 
-Presets are stored as XML files in `~/Library/Application Support/AnalogSynth/Presets/`.
+Factory presets are stored in `~/Library/Application Support/AnalogSynth/Presets/Factory/`.
+User presets are stored in `~/Library/Application Support/AnalogSynth/Presets/User/`.
 
-Use the **<** and **>** buttons in the header to browse presets.
+### Browsing Presets
+
+- **Click the preset name** in the header LCD to open a dropdown browser with Factory and User sections
+- Use the **<** and **>** buttons to cycle through presets
+- The LCD shows **" *"** after the name when you've edited parameters since loading
+
+### Saving & Managing Presets
+
+- **SAVE button**: Overwrites the current user preset, or opens Save As for factory/INIT presets
+- **... menu**: Access Save As, Rename, Delete, and Init
+  - **Save As**: Save current settings as a new user preset
+  - **Rename**: Rename the current user preset (factory presets are read-only)
+  - **Delete**: Delete the current user preset (factory presets cannot be deleted)
+  - **Init**: Reset all parameters to defaults
 
 ### Factory Presets
 
@@ -323,3 +337,19 @@ Use the **<** and **>** buttons in the header to browse presets.
 | 13 | Triple Osc Pad | All 3 oscillators through Sequential SVF with chorus and reverb |
 | 14 | Deep Sub Sine | Pulse wave + sine sub (-2 oct) with LFO pulse width modulation |
 | 15 | Acid Unison | Unison saw + square sub through acid filter with distortion |
+| 16 | Finger Bass | Mono saw + sub, fast filter env, Motown-style bass |
+| 17 | Reese Bass | Mono detuned saws with distortion and slow LFO movement |
+| 18 | Acid Bass 303 | Mono square through acid filter 24dB, high res, glide |
+| 19 | Sync Lead | Hard-synced saw with filter sweep and delay |
+| 20 | Mono Screamer | Saw + pulse through MS20 filter with LFO vibrato |
+| 21 | Portamento Lead | Mono triangle with glide and chorus |
+| 22 | Dark Choir | Three oscillators, slow attack, low cutoff, heavy reverb |
+| 23 | Glass Shimmer | Triangle + high pulse, long envelopes, chorus + reverb |
+| 24 | Analog Strings | Detuned saws through Sequential SVF with ensemble chorus |
+| 25 | Electric Piano | Triangle + pulse, medium filter env, velocity-sensitive |
+| 26 | Clav | Narrow pulse through diode filter, fast percussive decay |
+| 27 | Bell | PolyMod FM (fifth interval) with long release and delay |
+| 28 | Wind Noise | Noise-dominant with resonant LFO filter sweep and reverb |
+| 29 | Sci-Fi Sweep | PolyMod pitch modulation with long filter attack, cinematic |
+| 30 | Arp Sequences | Saw + sub with arp Up 1/16, 2 octaves, ping-pong delay |
+| 31 | Ambient Arp | Triangle with arp Random 1/8T, 3 octaves, heavy reverb + chorus |

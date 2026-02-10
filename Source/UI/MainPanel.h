@@ -317,6 +317,10 @@ public:
 private:
     void globalFocusChanged (juce::Component* focusedComponent) override
     {
+        // Don't steal focus when a modal dialog is active (e.g. preset save/rename)
+        if (juce::Component::getCurrentlyModalComponent() != nullptr)
+            return;
+
         // Whenever focus moves to something that isn't the keyboard,
         // grab it back so computer keyboard always triggers notes
         if (keyboard != nullptr && focusedComponent != keyboard.get())

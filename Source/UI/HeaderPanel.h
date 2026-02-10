@@ -8,7 +8,8 @@
 #include "../PresetManager.h"
 
 class HeaderPanel : public juce::Component,
-                    private juce::Timer
+                    private juce::Timer,
+                    public PresetManager::Listener
 {
 public:
     HeaderPanel()
@@ -40,19 +41,24 @@ public:
 
         prevButton.onClick = [this] {
             if (presetMgr != nullptr)
-            {
                 presetMgr->loadPreviousPreset();
-                updatePresetLabel();
-            }
         };
 
         nextButton.onClick = [this] {
             if (presetMgr != nullptr)
-            {
                 presetMgr->loadNextPreset();
-                updatePresetLabel();
-            }
         };
+
+        saveButton.setButtonText ("SAVE");
+        saveButton.setColour (juce::TextButton::buttonColourId, SynthColours::panelBg);
+        addAndMakeVisible (saveButton);
+
+        menuButton.setButtonText ("...");
+        menuButton.setColour (juce::TextButton::buttonColourId, SynthColours::panelBg);
+        addAndMakeVisible (menuButton);
+
+        saveButton.onClick = [this] { handleSave(); };
+        menuButton.onClick = [this] { showMenuPopup(); };
 
         masterKnob = std::make_unique<RotaryKnob> ("MASTER", "dB");
         addAndMakeVisible (*masterKnob);
@@ -64,7 +70,12 @@ public:
         addAndMakeVisible (voicesLabel);
     }
 
-    ~HeaderPanel() override { stopTimer(); }
+    ~HeaderPanel() override
+    {
+        stopTimer();
+        if (presetMgr != nullptr)
+            presetMgr->removeListener (this);
+    }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
@@ -73,7 +84,19 @@ public:
 
     void setPresetManager (PresetManager* mgr)
     {
+        if (presetMgr != nullptr)
+            presetMgr->removeListener (this);
+
         presetMgr = mgr;
+
+        if (presetMgr != nullptr)
+            presetMgr->addListener (this);
+
+        updatePresetLabel();
+    }
+
+    void presetChanged() override
+    {
         updatePresetLabel();
     }
 
@@ -81,19 +104,15 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Brushed metal header strip
         AnalogSynthLookAndFeel::fillBrushedMetal (g, bounds, SynthColours::faceplateMid.darker (0.05f));
 
-        // Bottom groove (1px dark + 1px light)
         g.setColour (SynthColours::faceplateEdge.darker (0.2f));
         g.fillRect (0.0f, bounds.getBottom() - 2.0f, bounds.getWidth(), 1.0f);
         g.setColour (SynthColours::faceplateMid.brighter (0.08f));
         g.fillRect (0.0f, bounds.getBottom() - 1.0f, bounds.getWidth(), 1.0f);
 
         // LCD-style preset display area background
-        auto presetArea = bounds.withSizeKeepingCentre (200.0f, 24.0f);
-        presetArea.setY (bounds.getCentreY() - 12.0f);
-        AnalogSynthLookAndFeel::drawLCDBackground (g, presetArea, 2.0f);
+        AnalogSynthLookAndFeel::drawLCDBackground (g, lcdBounds, 2.0f);
     }
 
     void resized() override
@@ -110,13 +129,32 @@ public:
         auto masterArea = bounds.removeFromRight (60);
         masterKnob->setBounds (masterArea);
 
-        bounds.removeFromRight (20);
-        auto presetArea = bounds.withSizeKeepingCentre (200, bounds.getHeight());
+        bounds.removeFromRight (10);
+
+        auto menuBtnArea = bounds.removeFromRight (32);
+        menuButton.setBounds (menuBtnArea.reduced (2));
+
+        auto saveBtnArea = bounds.removeFromRight (48);
+        saveButton.setBounds (saveBtnArea.reduced (2));
+
+        bounds.removeFromRight (6);
+
+        auto presetArea = bounds.withSizeKeepingCentre (260, bounds.getHeight());
         auto prevArea = presetArea.removeFromLeft (30);
         auto nextArea = presetArea.removeFromRight (30);
         prevButton.setBounds (prevArea.reduced (2));
         nextButton.setBounds (nextArea.reduced (2));
         presetLabel.setBounds (presetArea);
+
+        // Store LCD bounds for paint
+        lcdBounds = presetArea.toFloat();
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        auto labelBounds = presetLabel.getBounds();
+        if (labelBounds.contains (e.getPosition()))
+            showPresetBrowserPopup();
     }
 
 private:
@@ -124,16 +162,220 @@ private:
 
     void updatePresetLabel()
     {
-        if (presetMgr != nullptr && presetMgr->getCurrentPresetIndex() >= 0)
-            presetLabel.setText (presetMgr->getCurrentPresetName(), juce::dontSendNotification);
+        if (presetMgr == nullptr) return;
+
+        juce::String text;
+        if (presetMgr->getCurrentPresetIndex() >= 0)
+            text = presetMgr->getCurrentPresetName();
         else
-            presetLabel.setText ("INIT", juce::dontSendNotification);
+            text = "INIT";
+
+        if (presetMgr->isDirty())
+            text += " *";
+
+        presetLabel.setText (text, juce::dontSendNotification);
+    }
+
+    // --- Preset browser popup (click on LCD area) ---
+
+    void showPresetBrowserPopup()
+    {
+        if (presetMgr == nullptr) return;
+
+        juce::PopupMenu menu;
+
+        constexpr int kInitID = 90000;
+        constexpr int kPresetOffset = 1000;
+
+        menu.addItem (kInitID, "Init Preset");
+        menu.addSeparator();
+
+        // Factory section
+        menu.addSectionHeader ("FACTORY");
+        for (int i = 0; i < presetMgr->getNumPresets(); ++i)
+        {
+            if (presetMgr->isFactoryPreset (i))
+                menu.addItem (i + kPresetOffset, presetMgr->getPresetName (i),
+                              true, i == presetMgr->getCurrentPresetIndex());
+        }
+
+        menu.addSeparator();
+
+        // User section
+        menu.addSectionHeader ("USER");
+        bool hasUser = false;
+        for (int i = 0; i < presetMgr->getNumPresets(); ++i)
+        {
+            if (! presetMgr->isFactoryPreset (i))
+            {
+                menu.addItem (i + kPresetOffset, presetMgr->getPresetName (i),
+                              true, i == presetMgr->getCurrentPresetIndex());
+                hasUser = true;
+            }
+        }
+
+        if (! hasUser)
+            menu.addItem (-1, "(No user presets)", false);
+
+        menu.showMenuAsync (juce::PopupMenu::Options()
+                                .withTargetComponent (presetLabel)
+                                .withMinimumWidth (220),
+                            [this] (int result)
+                            {
+                                if (result == kInitID)
+                                    presetMgr->initPreset();
+                                else if (result >= kPresetOffset)
+                                    presetMgr->loadPreset (result - kPresetOffset);
+                            });
+    }
+
+    // --- Save button ---
+
+    void handleSave()
+    {
+        if (presetMgr == nullptr) return;
+
+        if (presetMgr->getCurrentPresetIndex() >= 0
+            && ! presetMgr->isCurrentPresetFactory())
+        {
+            // Overwrite current user preset
+            presetMgr->saveUserPreset (presetMgr->getCurrentPresetName());
+        }
+        else
+        {
+            showSaveAsDialog();
+        }
+    }
+
+    // --- Menu button (...) ---
+
+    void showMenuPopup()
+    {
+        if (presetMgr == nullptr) return;
+
+        bool canEditCurrent = presetMgr->getCurrentPresetIndex() >= 0
+                              && ! presetMgr->isCurrentPresetFactory();
+
+        juce::PopupMenu menu;
+        menu.addItem (1, "Save As...");
+        menu.addItem (2, "Rename...", canEditCurrent);
+        menu.addItem (3, "Delete", canEditCurrent);
+        menu.addSeparator();
+        menu.addItem (4, "Init");
+
+        menu.showMenuAsync (juce::PopupMenu::Options()
+                                .withTargetComponent (menuButton),
+                            [this] (int result)
+                            {
+                                if (result == 1) showSaveAsDialog();
+                                else if (result == 2) showRenameDialog();
+                                else if (result == 3) showDeleteConfirmation();
+                                else if (result == 4) presetMgr->initPreset();
+                            });
+    }
+
+    // --- Dialogs ---
+
+    void showSaveAsDialog()
+    {
+        if (presetMgr == nullptr) return;
+
+        auto* aw = new juce::AlertWindow ("Save Preset",
+                                           "Enter a name for your preset:",
+                                           juce::MessageBoxIconType::NoIcon);
+        aw->addTextEditor ("name", "", "Preset Name:");
+        aw->addButton ("Save", 1);
+        aw->addButton ("Cancel", 0);
+
+        if (auto* te = aw->getTextEditor ("name"))
+        {
+            te->setWantsKeyboardFocus (true);
+            te->setEscapeAndReturnKeysConsumed (true);
+        }
+
+        aw->enterModalState (true, juce::ModalCallbackFunction::create (
+            [this, aw] (int result)
+            {
+                if (result == 1 && presetMgr != nullptr)
+                {
+                    auto name = aw->getTextEditorContents ("name").trim();
+                    if (name.isNotEmpty())
+                        presetMgr->saveUserPreset (name);
+                }
+                delete aw;
+            }), false);
+
+        juce::Timer::callAfterDelay (100, [aw]()
+        {
+            if (auto* te = aw->getTextEditor ("name"))
+                te->grabKeyboardFocus();
+        });
+    }
+
+    void showRenameDialog()
+    {
+        if (presetMgr == nullptr || presetMgr->getCurrentPresetIndex() < 0) return;
+
+        auto currentName = presetMgr->getCurrentPresetName();
+
+        auto* aw = new juce::AlertWindow ("Rename Preset",
+                                           "Enter a new name:",
+                                           juce::MessageBoxIconType::NoIcon);
+        aw->addTextEditor ("name", currentName, "Preset Name:");
+        aw->addButton ("Rename", 1);
+        aw->addButton ("Cancel", 0);
+
+        if (auto* te = aw->getTextEditor ("name"))
+        {
+            te->setWantsKeyboardFocus (true);
+            te->setEscapeAndReturnKeysConsumed (true);
+        }
+
+        aw->enterModalState (true, juce::ModalCallbackFunction::create (
+            [this, aw] (int result)
+            {
+                if (result == 1 && presetMgr != nullptr)
+                {
+                    auto name = aw->getTextEditorContents ("name").trim();
+                    if (name.isNotEmpty())
+                        presetMgr->renameCurrentPreset (name);
+                }
+                delete aw;
+            }), false);
+
+        juce::Timer::callAfterDelay (100, [aw]()
+        {
+            if (auto* te = aw->getTextEditor ("name"))
+                te->grabKeyboardFocus();
+        });
+    }
+
+    void showDeleteConfirmation()
+    {
+        if (presetMgr == nullptr || presetMgr->getCurrentPresetIndex() < 0) return;
+
+        auto name = presetMgr->getCurrentPresetName();
+
+        auto* aw = new juce::AlertWindow ("Delete Preset",
+                                           "Delete \"" + name + "\"?",
+                                           juce::MessageBoxIconType::WarningIcon);
+        aw->addButton ("Delete", 1);
+        aw->addButton ("Cancel", 0);
+
+        aw->enterModalState (true, juce::ModalCallbackFunction::create (
+            [this, aw] (int result)
+            {
+                if (result == 1 && presetMgr != nullptr)
+                    presetMgr->deleteCurrentPreset();
+                delete aw;
+            }), false);
     }
 
     juce::Label titleLabel, subtitleLabel, presetLabel, voicesLabel;
-    juce::TextButton prevButton, nextButton;
+    juce::TextButton prevButton, nextButton, saveButton, menuButton;
     std::unique_ptr<RotaryKnob> masterKnob;
     PresetManager* presetMgr = nullptr;
+    juce::Rectangle<float> lcdBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HeaderPanel)
 };
