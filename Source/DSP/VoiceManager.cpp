@@ -33,6 +33,8 @@ void VoiceManager::prepare (double newSampleRate, int newSamplesPerBlock)
         voiceAge[i] = 0;
     }
 
+    chaosOsc.prepare (sampleRate);
+
     voiceBuffer.allocate (samplesPerBlock, true);
     nextAge = 0;
     heldNotes.clear();
@@ -160,15 +162,24 @@ void VoiceManager::noteOnUnison (int midiNote, float velocity)
                      + " spread=" + juce::String (unisonSpread, 2)
                      + " legato=" + juce::String (legato ? "yes" : "no"));
 
+    int activeVoices = std::clamp (numUnisonVoices, 2, kMaxVoices);
+    int numPairs = activeVoices / 2;
+
     for (int v = 0; v < kMaxVoices; ++v)
     {
+        if (v >= activeVoices)
+        {
+            // Silence inactive voices
+            if (voices[v].isActive())
+                voices[v].noteOff();
+            voices[v].setUnisonDetune (0.0f);
+            continue;
+        }
+
         // Paired detune: each adjacent pair has one voice detuned up, one down.
-        // This ensures each stereo side has both sharp and flat voices,
-        // preventing systematic L/R energy imbalance from phase cancellation.
-        // v0=-5ct, v1=+5ct, v2=-10ct, v3=+10ct, v4=-15ct, v5=+15ct
         int pair = v / 2;
         bool isUpper = (v % 2 == 1);
-        float detuneScale = static_cast<float> (pair + 1) / static_cast<float> (kMaxVoices / 2);
+        float detuneScale = static_cast<float> (pair + 1) / static_cast<float> (numPairs);
         float cents = detuneScale * unisonDetuneCents * (isUpper ? 1.0f : -1.0f);
         voices[v].setUnisonDetune (cents);
 
@@ -210,6 +221,10 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
     for (int v = 0; v < kMaxVoices; ++v)
         drift[v].advance (numSamples);
 
+    // Process chaos oscillator (global, control-rate — use last sample value)
+    for (int i = 0; i < numSamples; ++i)
+        globalModValues.chaos = chaosOsc.processSample();
+
     auto* leftChannel  = outputBuffer.getWritePointer (0);
     auto* rightChannel = outputBuffer.getNumChannels() > 1 ? outputBuffer.getWritePointer (1) : nullptr;
 
@@ -220,8 +235,9 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
 
     if (unisonEnabled && rightChannel != nullptr)
     {
+        int activeVoices = std::clamp (numUnisonVoices, 2, kMaxVoices);
         // Gain compensation: 1/sqrt(N) preserves perceived loudness without clipping
-        float unisonGain = 1.0f / std::sqrt (static_cast<float> (kMaxVoices));
+        float unisonGain = 1.0f / std::sqrt (static_cast<float> (activeVoices));
 
         // Unison: per-voice stereo panning with gain compensation
         for (int v = 0; v < kMaxVoices; ++v)
@@ -232,7 +248,9 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
             voices[v].renderBlock (voiceBuffer, numSamples);
 
             // Normalized voice position: 0 (first) to 1 (last)
-            float t = static_cast<float> (v) / static_cast<float> (kMaxVoices - 1);
+            float t = (activeVoices > 1)
+                ? static_cast<float> (v) / static_cast<float> (activeVoices - 1)
+                : 0.5f;
             // Pan position: 0 (hard left) to 1 (hard right), centered when spread=0
             float panPos = 0.5f + (t - 0.5f) * unisonSpread;
             float gainL = std::cos (panPos * juce::MathConstants<float>::halfPi) * unisonGain;
@@ -284,6 +302,30 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
     unisonEnabled = apvts.getRawParameterValue (ParameterIDs::unison)->load() > 0.5f;
     unisonDetuneCents = apvts.getRawParameterValue (ParameterIDs::unisonDetune)->load();
     unisonSpread = apvts.getRawParameterValue (ParameterIDs::unisonSpread)->load();
+    numUnisonVoices = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::unisonVoices)->load()) + 2; // choice 0=2, 1=3, ..., 4=6
+
+    // ---- Mod Matrix: read 16 slots from APVTS ----
+    for (int s = 0; s < ModMatrix::kNumSlots; ++s)
+    {
+        int srcIdx  = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::modSlotSourceIDs[s])->load());
+        int dstIdx  = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::modSlotDestIDs[s])->load());
+        float amt   = apvts.getRawParameterValue (ParameterIDs::modSlotAmountIDs[s])->load();
+        modMatrix.setSlot (s, srcIdx, dstIdx, amt);
+    }
+    modMatrix.prepareDestinationMask();
+
+    // ---- Global mod values ----
+    globalModValues.modWheel   = modWheelVal;
+    globalModValues.aftertouch = aftertouchVal;
+    globalModValues.pitchBend  = pitchBendNorm;
+    globalModValues.macro1     = apvts.getRawParameterValue (ParameterIDs::macro1)->load();
+    globalModValues.macro2     = apvts.getRawParameterValue (ParameterIDs::macro2)->load();
+    globalModValues.macro3     = apvts.getRawParameterValue (ParameterIDs::macro3)->load();
+    globalModValues.macro4     = apvts.getRawParameterValue (ParameterIDs::macro4)->load();
+
+    // Chaos oscillator params
+    chaosOsc.setRate (apvts.getRawParameterValue (ParameterIDs::chaosRate)->load());
+    chaosOsc.setAmount (apvts.getRawParameterValue (ParameterIDs::chaosAmount)->load());
 
     // Pitch bend: normalised value * range in semitones
     float pbRange = apvts.getRawParameterValue (ParameterIDs::pitchBendRange)->load();
@@ -293,9 +335,48 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
     bool glideOn = apvts.getRawParameterValue (ParameterIDs::glide)->load() > 0.5f;
     float glideTimeVal = apvts.getRawParameterValue (ParameterIDs::glideTime)->load();
 
+    // ---- LFO 2/3 parameters (read once, apply to all voices) ----
+    int lfo2ShapeVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo2Shape)->load());
+    float lfo2RateVal = apvts.getRawParameterValue (ParameterIDs::lfo2Rate)->load();
+    bool lfo2KeySyncVal = apvts.getRawParameterValue (ParameterIDs::lfo2KeySync)->load() > 0.5f;
+
+    int lfo3ShapeVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo3Shape)->load());
+    float lfo3RateVal = apvts.getRawParameterValue (ParameterIDs::lfo3Rate)->load();
+    bool lfo3KeySyncVal = apvts.getRawParameterValue (ParameterIDs::lfo3KeySync)->load() > 0.5f;
+
+    // Step sequencer smoothing per LFO
+    bool lfo1StepSmoothVal = apvts.getRawParameterValue (ParameterIDs::lfo1StepSmooth)->load() > 0.5f;
+    bool lfo2StepSmoothVal = apvts.getRawParameterValue (ParameterIDs::lfo2StepSmooth)->load() > 0.5f;
+    bool lfo3StepSmoothVal = apvts.getRawParameterValue (ParameterIDs::lfo3StepSmooth)->load() > 0.5f;
+
+    // ---- Env 3/4 parameters ----
+    float env3A = apvts.getRawParameterValue (ParameterIDs::env3Attack)->load();
+    float env3H = apvts.getRawParameterValue (ParameterIDs::env3Hold)->load();
+    float env3D = apvts.getRawParameterValue (ParameterIDs::env3Decay)->load();
+    float env3S = apvts.getRawParameterValue (ParameterIDs::env3Sustain)->load();
+    float env3R = apvts.getRawParameterValue (ParameterIDs::env3Release)->load();
+
+    float env4A = apvts.getRawParameterValue (ParameterIDs::env4Attack)->load();
+    float env4H = apvts.getRawParameterValue (ParameterIDs::env4Hold)->load();
+    float env4D = apvts.getRawParameterValue (ParameterIDs::env4Decay)->load();
+    float env4S = apvts.getRawParameterValue (ParameterIDs::env4Sustain)->load();
+    float env4R = apvts.getRawParameterValue (ParameterIDs::env4Release)->load();
+
+    // Envelope loop params
+    bool env3LoopOn    = apvts.getRawParameterValue (ParameterIDs::env3LoopEnabled)->load() > 0.5f;
+    int env3LoopStart  = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::env3LoopStart)->load());
+    int env3LoopEnd    = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::env3LoopEnd)->load());
+    bool env4LoopOn    = apvts.getRawParameterValue (ParameterIDs::env4LoopEnabled)->load() > 0.5f;
+    int env4LoopStart  = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::env4LoopStart)->load());
+    int env4LoopEnd    = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::env4LoopEnd)->load());
+
     for (int v = 0; v < kMaxVoices; ++v)
     {
         auto& voice = voices[v];
+
+        // Mod matrix + global values (shared across all voices)
+        voice.setModMatrix (&modMatrix);
+        voice.setGlobalModValues (&globalModValues);
 
         // Performance controllers
         voice.setPitchBend (pbSemitones);
@@ -340,6 +421,8 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
             apvts.getRawParameterValue (ParameterIDs::subLevel)->load(),
             apvts.getRawParameterValue (ParameterIDs::noiseLevel)->load());
 
+        voice.setNoiseType (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::noiseType)->load()));
+
         // Analog drift — apply per-voice variation
         drift[v].setAmount (slopAmount);
         voice.setPitchDriftCents (drift[v].getPitchDriftCents());
@@ -382,22 +465,31 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
 
         voice.setFilterEnvParams (
             apvts.getRawParameterValue (ParameterIDs::filterEnvAttack)->load() * envTimeFactor,
+            apvts.getRawParameterValue (ParameterIDs::filterEnvHold)->load(),
             apvts.getRawParameterValue (ParameterIDs::filterEnvDecay)->load() * envTimeFactor,
             apvts.getRawParameterValue (ParameterIDs::filterEnvSustain)->load(),
             apvts.getRawParameterValue (ParameterIDs::filterEnvRelease)->load() * envTimeFactor);
 
         voice.setAmpEnvParams (
             apvts.getRawParameterValue (ParameterIDs::ampEnvAttack)->load() * envTimeFactor,
+            apvts.getRawParameterValue (ParameterIDs::ampEnvHold)->load(),
             apvts.getRawParameterValue (ParameterIDs::ampEnvDecay)->load() * envTimeFactor,
             apvts.getRawParameterValue (ParameterIDs::ampEnvSustain)->load(),
             apvts.getRawParameterValue (ParameterIDs::ampEnvRelease)->load() * envTimeFactor);
 
-        // LFO — apply per-voice rate variation
+        // Env 3/4 — apply per-voice time variation
+        voice.setEnv3Params (env3A * envTimeFactor, env3H, env3D * envTimeFactor, env3S, env3R * envTimeFactor);
+        voice.setEnv3Loop (env3LoopOn, env3LoopStart, env3LoopEnd);
+        voice.setEnv4Params (env4A * envTimeFactor, env4H, env4D * envTimeFactor, env4S, env4R * envTimeFactor);
+        voice.setEnv4Loop (env4LoopOn, env4LoopStart, env4LoopEnd);
+
+        // LFO 1 — apply per-voice rate variation
         voice.setLFOShape (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfoShape)->load()));
         float lfoRate = apvts.getRawParameterValue (ParameterIDs::lfoRate)->load();
         lfoRate *= drift[v].getLFORateOffsetFactor();
         voice.setLFORate (lfoRate);
         voice.setLFOKeySync (apvts.getRawParameterValue (ParameterIDs::lfoKeySync)->load() > 0.5f);
+        voice.setLFOStepSmooth (lfo1StepSmoothVal);
 
         LFOAmounts lfoAmt;
         lfoAmt.toOscFreq  = apvts.getRawParameterValue (ParameterIDs::lfoToOscFreq)->load();
@@ -406,7 +498,23 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         lfoAmt.toAmp      = apvts.getRawParameterValue (ParameterIDs::lfoToAmp)->load();
         voice.setLFOAmounts (lfoAmt);
 
-        // Poly Mod
+        // LFO 2 — apply per-voice rate variation
+        voice.setLFO2Shape (lfo2ShapeVal);
+        voice.setLFO2Rate (lfo2RateVal * drift[v].getLFORateOffsetFactor());
+        voice.setLFO2KeySync (lfo2KeySyncVal);
+        voice.setLFO2StepSmooth (lfo2StepSmoothVal);
+
+        // LFO 3 — apply per-voice rate variation
+        voice.setLFO3Shape (lfo3ShapeVal);
+        voice.setLFO3Rate (lfo3RateVal * drift[v].getLFORateOffsetFactor());
+        voice.setLFO3KeySync (lfo3KeySyncVal);
+        voice.setLFO3StepSmooth (lfo3StepSmoothVal);
+
+        // LFO shape data (custom shapes + step sequencer) — read from ValueTree
+        // Done once outside the loop for efficiency, but applied per-voice here
+        // (handled by updateLFOShapeData called after this loop)
+
+        // Poly Mod (Osc2 audio-rate FM — kept as legacy)
         PolyModAmounts pmAmt;
         pmAmt.fenvToOsc1Freq  = apvts.getRawParameterValue (ParameterIDs::polyModFenvToOsc1Freq)->load();
         pmAmt.fenvToOsc1Shape = apvts.getRawParameterValue (ParameterIDs::polyModFenvToOsc1Shape)->load();
@@ -420,6 +528,66 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         pmAmt.osc2ToHPF       = apvts.getRawParameterValue (ParameterIDs::polyModOsc2ToHPF)->load();
         voice.setPolyModAmounts (pmAmt);
     }
+
+    // Read custom LFO shape data from ValueTree and push to all voices
+    updateLFOShapeData (apvts);
+}
+
+void VoiceManager::updateLFOShapeData (juce::AudioProcessorValueTreeState& apvts)
+{
+    auto shapeData = apvts.state.getChildWithName ("LFO_SHAPE_DATA");
+    if (! shapeData.isValid()) return;
+
+    // Helper lambda to read and apply custom + step seq data for one LFO
+    for (int lfoIdx = 0; lfoIdx < 3; ++lfoIdx)
+    {
+        juce::String prefix = "LFO" + juce::String (lfoIdx);
+
+        // Custom shape
+        auto customTree = shapeData.getChildWithName (juce::Identifier (prefix + "_CUSTOM"));
+        if (customTree.isValid())
+        {
+            int numPts = static_cast<int> (customTree.getProperty ("numPoints", 2));
+            for (int v = 0; v < kMaxVoices; ++v)
+            {
+                if (lfoIdx == 0)      voices[v].setLFOCustomNumPoints (numPts);
+                else if (lfoIdx == 1) voices[v].setLFO2CustomNumPoints (numPts);
+                else                  voices[v].setLFO3CustomNumPoints (numPts);
+
+                for (int p = 0; p < numPts; ++p)
+                {
+                    float x = static_cast<float> (customTree.getProperty (juce::Identifier ("x" + juce::String (p)), 0.0f));
+                    float y = static_cast<float> (customTree.getProperty (juce::Identifier ("y" + juce::String (p)), 0.0f));
+
+                    if (lfoIdx == 0)      voices[v].setLFOCustomPoint (p, x, y);
+                    else if (lfoIdx == 1) voices[v].setLFO2CustomPoint (p, x, y);
+                    else                  voices[v].setLFO3CustomPoint (p, x, y);
+                }
+            }
+        }
+
+        // Step sequencer
+        auto stepTree = shapeData.getChildWithName (juce::Identifier (prefix + "_STEPSEQ"));
+        if (stepTree.isValid())
+        {
+            int numSteps = static_cast<int> (stepTree.getProperty ("numSteps", 16));
+            for (int v = 0; v < kMaxVoices; ++v)
+            {
+                if (lfoIdx == 0)      voices[v].setLFOStepSeqNumSteps (numSteps);
+                else if (lfoIdx == 1) voices[v].setLFO2StepSeqNumSteps (numSteps);
+                else                  voices[v].setLFO3StepSeqNumSteps (numSteps);
+
+                for (int s = 0; s < numSteps; ++s)
+                {
+                    float val = static_cast<float> (stepTree.getProperty (juce::Identifier ("s" + juce::String (s)), 0.0f));
+
+                    if (lfoIdx == 0)      voices[v].setLFOStepValue (s, val);
+                    else if (lfoIdx == 1) voices[v].setLFO2StepValue (s, val);
+                    else                  voices[v].setLFO3StepValue (s, val);
+                }
+            }
+        }
+    }
 }
 
 void VoiceManager::setPitchBend (float normalised)
@@ -430,6 +598,11 @@ void VoiceManager::setPitchBend (float normalised)
 void VoiceManager::setModWheel (float value)
 {
     modWheelVal = std::clamp (value, 0.0f, 1.0f);
+}
+
+void VoiceManager::setAftertouch (float value)
+{
+    aftertouchVal = std::clamp (value, 0.0f, 1.0f);
 }
 
 int VoiceManager::getActiveVoiceCount() const

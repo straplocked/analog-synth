@@ -20,11 +20,16 @@
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
+#include <array>
 
 class LFO
 {
 public:
-    enum class Shape { Triangle, Saw, Square, Random, Sine };
+    enum class Shape { Triangle, Saw, Square, Random, Sine, Custom, StepSeq };
+
+    static constexpr int kMaxCustomPoints = 32;
+    static constexpr int kMaxStepSeqSteps = 16;
 
     void prepare (double newSampleRate)
     {
@@ -40,12 +45,45 @@ public:
     void setShape (int shapeIndex) { shape = static_cast<Shape> (shapeIndex); }
     void setRate (float hz) { rate = hz; }
     void setKeySync (bool enabled) { keySync = enabled; }
+    void setStepSmooth (bool enabled) { stepSmooth = enabled; }
 
     void resetPhase() { phase = voicePhaseOffset; }
 
     void setVoicePhaseOffset (double offset)
     {
         voicePhaseOffset = std::fmod (std::abs (offset), 1.0);
+    }
+
+    // ---- Custom shape editing ----
+
+    void setCustomNumPoints (int n) { customNumPoints = std::clamp (n, 2, kMaxCustomPoints); }
+    int getCustomNumPoints() const { return customNumPoints; }
+
+    void setCustomPoint (int index, float x, float y)
+    {
+        if (index >= 0 && index < kMaxCustomPoints)
+        {
+            customPointsX[index] = std::clamp (x, 0.0f, 1.0f);
+            customPointsY[index] = std::clamp (y, -1.0f, 1.0f);
+        }
+    }
+
+    // ---- Step sequencer editing ----
+
+    void setStepSeqNumSteps (int n) { stepSeqNumSteps = std::clamp (n, 1, kMaxStepSeqSteps); }
+    int getStepSeqNumSteps() const { return stepSeqNumSteps; }
+
+    void setStepValue (int index, float value)
+    {
+        if (index >= 0 && index < kMaxStepSeqSteps)
+            stepValues[index] = std::clamp (value, -1.0f, 1.0f);
+    }
+
+    float getStepValue (int index) const
+    {
+        if (index >= 0 && index < kMaxStepSeqSteps)
+            return stepValues[index];
+        return 0.0f;
     }
 
     // Returns bipolar output [-1, +1]
@@ -93,6 +131,20 @@ public:
             case Shape::Sine:
                 output = static_cast<float> (std::sin (phase * 2.0 * M_PI));
                 break;
+
+            case Shape::Custom:
+                output = evaluateCustomShape (static_cast<float> (phase));
+                break;
+
+            case Shape::StepSeq:
+                output = evaluateStepSeq (static_cast<float> (phase));
+                needsSlew = stepSmooth;
+                if (! stepSmooth)
+                {
+                    // Without smoothing, still apply slew to avoid harsh clicks
+                    needsSlew = true;
+                }
+                break;
         }
 
         prevPhase = phase;
@@ -128,4 +180,48 @@ private:
     // Slew rate limiter for Square/S&H (analog capacitor slew)
     float slewState = 0.0f;
     float slewCoeff = 0.0f;
+
+    // ---- Custom shape data ----
+    // Points sorted by X (0.0 to 1.0), Y is bipolar (-1 to +1)
+    // Default: linear ramp from -1 to +1
+    int customNumPoints = 2;
+    float customPointsX[kMaxCustomPoints] = { 0.0f, 1.0f };
+    float customPointsY[kMaxCustomPoints] = { -1.0f, 1.0f };
+
+    // ---- Step sequencer data ----
+    int stepSeqNumSteps = 16;
+    float stepValues[kMaxStepSeqSteps] = {};
+    bool stepSmooth = false;
+
+    float evaluateCustomShape (float p) const
+    {
+        if (customNumPoints < 2) return 0.0f;
+
+        // Find the segment containing phase p
+        for (int i = 0; i < customNumPoints - 1; ++i)
+        {
+            if (p <= customPointsX[i + 1] || i == customNumPoints - 2)
+            {
+                float x0 = customPointsX[i];
+                float x1 = customPointsX[i + 1];
+                float y0 = customPointsY[i];
+                float y1 = customPointsY[i + 1];
+
+                float dx = x1 - x0;
+                if (dx < 0.0001f) return y0;
+
+                float t = (p - x0) / dx;
+                return y0 + t * (y1 - y0);
+            }
+        }
+
+        return 0.0f;
+    }
+
+    float evaluateStepSeq (float p) const
+    {
+        int step = static_cast<int> (p * stepSeqNumSteps);
+        step = std::clamp (step, 0, stepSeqNumSteps - 1);
+        return stepValues[step];
+    }
 };

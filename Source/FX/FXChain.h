@@ -31,11 +31,14 @@
 #include "ChorusEffect.h"
 #include "DelayEffect.h"
 #include "ReverbEffect.h"
+#include "PhaserEffect.h"
+#include "FlangerEffect.h"
+#include "HyperEffect.h"
 
 class FXChain
 {
 public:
-    static constexpr int kNumEffects = FXOrderUtils::kNumEffects;
+    static constexpr int kNumEffects = 9;
 
     // Effect index constants
     static constexpr int kDistortion  = 0;
@@ -44,6 +47,9 @@ public:
     static constexpr int kChorus      = 3;
     static constexpr int kDelay       = 4;
     static constexpr int kReverb      = 5;
+    static constexpr int kPhaser      = 6;
+    static constexpr int kFlanger     = 7;
+    static constexpr int kHyper       = 8;
 
     FXChain()
     {
@@ -53,8 +59,11 @@ public:
         effects[kChorus]      = std::make_unique<ChorusEffect>();
         effects[kDelay]       = std::make_unique<DelayEffect>();
         effects[kReverb]      = std::make_unique<ReverbEffect>();
+        effects[kPhaser]      = std::make_unique<PhaserEffect>();
+        effects[kFlanger]     = std::make_unique<FlangerEffect>();
+        effects[kHyper]       = std::make_unique<HyperEffect>();
 
-        // Default order: Dist, Comp, EQ, Chorus, Delay, Reverb
+        // Default order: Dist, Comp, EQ, Chorus, Delay, Reverb, Phaser, Flanger, Hyper
         for (int i = 0; i < kNumEffects; ++i)
             processingOrder[static_cast<std::size_t> (i)] = i;
     }

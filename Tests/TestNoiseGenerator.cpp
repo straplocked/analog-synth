@@ -107,3 +107,95 @@ TEST_CASE ("NoiseGenerator renderBlock", "[dsp]")
             REQUIRE (blockOutput[i] == b.processSample());
     }
 }
+
+TEST_CASE ("NoiseGenerator pink noise", "[dsp]")
+{
+    NoiseGenerator noise;
+    noise.setNoiseType (1); // Pink
+    noise.prepare (44100.0);
+
+    SECTION ("Output bounded and finite")
+    {
+        for (int i = 0; i < 100000; ++i)
+        {
+            float s = noise.processSample();
+            REQUIRE (std::isfinite (s));
+            REQUIRE (s >= -1.5f);
+            REQUIRE (s <= 1.5f);
+        }
+    }
+
+    SECTION ("Pink noise has less high-frequency energy than white")
+    {
+        // Compare variance of sample-to-sample differences (proxy for HF energy)
+        NoiseGenerator white, pink;
+        white.setSeed (42);
+        white.setNoiseType (0);
+        white.prepare (44100.0);
+        pink.setSeed (42);
+        pink.setNoiseType (1);
+        pink.prepare (44100.0);
+
+        int N = 50000;
+        double whiteDiffVar = 0.0, pinkDiffVar = 0.0;
+        float prevW = white.processSample(), prevP = pink.processSample();
+        for (int i = 1; i < N; ++i)
+        {
+            float w = white.processSample();
+            float p = pink.processSample();
+            float dw = w - prevW;
+            float dp = p - prevP;
+            whiteDiffVar += dw * dw;
+            pinkDiffVar += dp * dp;
+            prevW = w;
+            prevP = p;
+        }
+        // Pink should have lower HF energy (smaller difference variance)
+        REQUIRE (pinkDiffVar < whiteDiffVar);
+    }
+}
+
+TEST_CASE ("NoiseGenerator brown noise", "[dsp]")
+{
+    NoiseGenerator noise;
+    noise.setNoiseType (2); // Brown
+    noise.prepare (44100.0);
+
+    SECTION ("Output bounded to [-1, 1]")
+    {
+        for (int i = 0; i < 100000; ++i)
+        {
+            float s = noise.processSample();
+            REQUIRE (std::isfinite (s));
+            REQUIRE (s >= -1.0f);
+            REQUIRE (s <= 1.0f);
+        }
+    }
+
+    SECTION ("Brown noise is smoother than white (lower HF energy)")
+    {
+        NoiseGenerator white, brown;
+        white.setSeed (42);
+        white.setNoiseType (0);
+        white.prepare (44100.0);
+        brown.setSeed (42);
+        brown.setNoiseType (2);
+        brown.prepare (44100.0);
+
+        int N = 50000;
+        double whiteDiffVar = 0.0, brownDiffVar = 0.0;
+        float prevW = white.processSample(), prevB = brown.processSample();
+        for (int i = 1; i < N; ++i)
+        {
+            float w = white.processSample();
+            float b = brown.processSample();
+            float dw = w - prevW;
+            float db = b - prevB;
+            whiteDiffVar += dw * dw;
+            brownDiffVar += db * db;
+            prevW = w;
+            prevB = b;
+        }
+        REQUIRE (brownDiffVar < whiteDiffVar);
+    }
+}

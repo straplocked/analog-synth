@@ -24,7 +24,7 @@
 class ADSREnvelope
 {
 public:
-    enum class Stage { Idle, Attack, Decay, Sustain, Release };
+    enum class Stage { Idle, Attack, Hold, Decay, Sustain, Release };
 
     void prepare (double newSampleRate)
     {
@@ -33,15 +33,21 @@ public:
     }
 
     void setAttack (float seconds)  { attackTime = std::max (0.001f, seconds); }
+    void setHold (float seconds)    { holdTime = std::max (0.0f, seconds); }
     void setDecay (float seconds)   { decayTime = std::max (0.001f, seconds); }
     void setSustain (float level)   { sustainLevel = std::clamp (level, 0.0f, 1.0f); }
     void setRelease (float seconds) { releaseTime = std::max (0.001f, seconds); }
+
+    // Looping (Env3/Env4 only): cycles between loopStart and loopEnd stages
+    void setLoopEnabled (bool enabled) { loopEnabled = enabled; }
+    void setLoopStart (int stageIdx)   { loopStartStage = std::clamp (stageIdx, 0, 2); } // 0=Attack, 1=Hold, 2=Decay
+    void setLoopEnd (int stageIdx)     { loopEndStage = std::clamp (stageIdx, 0, 1); }   // 0=after Decay, 1=at Sustain
 
     void noteOn (float velocity = 1.0f)
     {
         stage = Stage::Attack;
         velocityScale = velocity;
-        // Calculate coefficients for exponential curves
+        holdSamplesRemaining = 0;
         updateCoefficients();
     }
 
@@ -73,8 +79,25 @@ public:
                 if (currentLevel >= 1.0f)
                 {
                     currentLevel = 1.0f;
-                    stage = Stage::Decay;
+                    if (holdTime > 0.0f)
+                    {
+                        stage = Stage::Hold;
+                        holdSamplesRemaining = static_cast<int> (sampleRate * holdTime);
+                    }
+                    else
+                    {
+                        stage = Stage::Decay;
+                    }
                 }
+                break;
+            }
+
+            case Stage::Hold:
+            {
+                currentLevel = 1.0f;
+                --holdSamplesRemaining;
+                if (holdSamplesRemaining <= 0)
+                    stage = Stage::Decay;
                 break;
             }
 
@@ -85,13 +108,18 @@ public:
                 if (std::abs (currentLevel - sustainLevel) < 0.0001f)
                 {
                     currentLevel = sustainLevel;
-                    stage = Stage::Sustain;
+                    if (loopEnabled && loopEndStage == 0)
+                        jumpToLoopStart();
+                    else
+                        stage = Stage::Sustain;
                 }
                 break;
             }
 
             case Stage::Sustain:
                 currentLevel = sustainLevel;
+                if (loopEnabled && loopEndStage == 1)
+                    jumpToLoopStart();
                 break;
 
             case Stage::Release:
@@ -115,13 +143,35 @@ public:
         stage = Stage::Idle;
         currentLevel = 0.0f;
         velocityScale = 1.0f;
+        holdSamplesRemaining = 0;
     }
 
 private:
+    void jumpToLoopStart()
+    {
+        switch (loopStartStage)
+        {
+            case 0: // Attack: ramp from current level toward 1.0
+                stage = Stage::Attack;
+                break;
+            case 1: // Hold: start at peak, hold for holdTime
+                currentLevel = 1.0f;
+                stage = Stage::Hold;
+                holdSamplesRemaining = static_cast<int> (sampleRate * holdTime);
+                break;
+            case 2: // Decay: start at peak, decay toward sustain
+            default:
+                currentLevel = 1.0f;
+                stage = Stage::Decay;
+                break;
+        }
+    }
+
     double sampleRate = 44100.0;
     Stage stage = Stage::Idle;
 
     float attackTime   = 0.005f;
+    float holdTime     = 0.0f;
     float decayTime    = 0.3f;
     float sustainLevel = 0.8f;
     float releaseTime  = 0.3f;
@@ -129,10 +179,16 @@ private:
     float currentLevel = 0.0f;
     float velocityScale = 1.0f;
     float releaseStartLevel = 0.0f;
+    int holdSamplesRemaining = 0;
 
     float attackCoeff  = 0.0f;
     float decayCoeff   = 0.0f;
     float releaseCoeff = 0.0f;
+
+    // Loop settings (for Env3/Env4)
+    bool loopEnabled = false;
+    int loopStartStage = 0; // 0=Attack, 1=Hold, 2=Decay
+    int loopEndStage = 0;   // 0=after Decay, 1=at Sustain
 
     float calcCoeff (float timeInSeconds, float numTimeConstants = 1.0f) const
     {

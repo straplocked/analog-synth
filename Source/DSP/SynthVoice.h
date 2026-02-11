@@ -28,6 +28,7 @@
 #include "StateVariableHPF.h"
 #include "LFO.h"
 #include "PolyModRouter.h"
+#include "ModMatrix.h"
 #include "PinkNoise.h"
 #include "Saturation.h"
 
@@ -59,6 +60,7 @@ public:
     // Sub oscillator
     void setSubWaveform (int waveformIndex);
     void setSubOctave (int octaveChoice);
+    void setNoiseType (int type) { noise.setNoiseType (type); }
 
     // Filter
     void setFilterCutoff (float hz);
@@ -69,17 +71,64 @@ public:
     void setHPFCutoff (float hz);
 
     // Envelopes
-    void setFilterEnvParams (float attack, float decay, float sustain, float release);
-    void setAmpEnvParams (float attack, float decay, float sustain, float release);
+    void setFilterEnvParams (float attack, float hold, float decay, float sustain, float release);
+    void setAmpEnvParams (float attack, float hold, float decay, float sustain, float release);
 
-    // LFO
+    // LFO 1
     void setLFOShape (int shapeIndex);
     void setLFORate (float hz);
     void setLFOKeySync (bool enabled);
+    void setLFOStepSmooth (bool enabled) { lfo.setStepSmooth (enabled); }
+    void setLFOCustomPoint (int index, float x, float y) { lfo.setCustomPoint (index, x, y); }
+    void setLFOCustomNumPoints (int n) { lfo.setCustomNumPoints (n); }
+    void setLFOStepValue (int index, float value) { lfo.setStepValue (index, value); }
+    void setLFOStepSeqNumSteps (int n) { lfo.setStepSeqNumSteps (n); }
     void setLFOAmounts (const LFOAmounts& amounts);
 
-    // Poly Mod
+    // LFO 2
+    void setLFO2Shape (int shapeIndex);
+    void setLFO2Rate (float hz);
+    void setLFO2KeySync (bool enabled);
+    void setLFO2StepSmooth (bool enabled) { lfo2.setStepSmooth (enabled); }
+    void setLFO2CustomPoint (int index, float x, float y) { lfo2.setCustomPoint (index, x, y); }
+    void setLFO2CustomNumPoints (int n) { lfo2.setCustomNumPoints (n); }
+    void setLFO2StepValue (int index, float value) { lfo2.setStepValue (index, value); }
+    void setLFO2StepSeqNumSteps (int n) { lfo2.setStepSeqNumSteps (n); }
+
+    // LFO 3
+    void setLFO3Shape (int shapeIndex);
+    void setLFO3Rate (float hz);
+    void setLFO3KeySync (bool enabled);
+    void setLFO3StepSmooth (bool enabled) { lfo3.setStepSmooth (enabled); }
+    void setLFO3CustomPoint (int index, float x, float y) { lfo3.setCustomPoint (index, x, y); }
+    void setLFO3CustomNumPoints (int n) { lfo3.setCustomNumPoints (n); }
+    void setLFO3StepValue (int index, float value) { lfo3.setStepValue (index, value); }
+    void setLFO3StepSeqNumSteps (int n) { lfo3.setStepSeqNumSteps (n); }
+
+    // Envelope 3
+    void setEnv3Params (float attack, float hold, float decay, float sustain, float release);
+    void setEnv3Loop (bool enabled, int loopStart, int loopEnd)
+    {
+        env3.setLoopEnabled (enabled);
+        env3.setLoopStart (loopStart);
+        env3.setLoopEnd (loopEnd);
+    }
+
+    // Envelope 4
+    void setEnv4Params (float attack, float hold, float decay, float sustain, float release);
+    void setEnv4Loop (bool enabled, int loopStart, int loopEnd)
+    {
+        env4.setLoopEnabled (enabled);
+        env4.setLoopStart (loopStart);
+        env4.setLoopEnd (loopEnd);
+    }
+
+    // Poly Mod (Osc2 audio-rate FM — legacy, kept separate from matrix)
     void setPolyModAmounts (const PolyModAmounts& amounts);
+
+    // Mod Matrix
+    void setModMatrix (const ModMatrix* matrix) { modMatrix = matrix; }
+    void setGlobalModValues (const GlobalModValues* vals) { globalModVals = vals; }
 
     // Hard sync
     void setSyncEnabled (bool enabled) { syncEnabled = enabled; }
@@ -105,6 +154,8 @@ public:
     {
         double offset = std::fmod (static_cast<double> (index) * 0.381966011, 1.0);
         lfo.setVoicePhaseOffset (offset);
+        lfo2.setVoicePhaseOffset (std::fmod (offset + 0.217, 1.0));
+        lfo3.setVoicePhaseOffset (std::fmod (offset + 0.618, 1.0));
     }
 
     // Phase randomization for unison voices
@@ -135,12 +186,23 @@ private:
 
     ADSREnvelope filterEnv;
     ADSREnvelope ampEnv;
+    ADSREnvelope env3;
+    ADSREnvelope env4;
     FilterEngine filterEngine;
     StateVariableHPF hpf;
     LFO lfo;
+    LFO lfo2;
+    LFO lfo3;
 
     PolyModAmounts polyMod;
     LFOAmounts lfoAmounts;
+
+    // Mod matrix (owned by VoiceManager, shared across all voices)
+    const ModMatrix* modMatrix = nullptr;
+    const GlobalModValues* globalModVals = nullptr;
+
+    // Per-note random value for mod matrix Random source
+    float noteRandomValue = 0.0f;
 
     double sampleRate = 44100.0;
     int currentNote = -1;
@@ -173,6 +235,8 @@ private:
     int maxBlockSize = 0;
 
     bool lfoKeySync = false;
+    bool lfo2KeySync = false;
+    bool lfo3KeySync = false;
 
     // Hard sync
     bool syncEnabled = false;

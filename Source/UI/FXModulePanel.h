@@ -641,3 +641,163 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReverbModulePanel)
 };
+
+class PhaserModulePanel : public FXModulePanel
+{
+public:
+    PhaserModulePanel() : FXModulePanel (6, "PHASE")
+    {
+        stagesBox.addItemList ({ "4", "6", "8" }, 1);
+        stagesBox.setSelectedId (2, juce::dontSendNotification);
+        addAndMakeVisible (stagesBox);
+
+        rate     = std::make_unique<RotaryKnob> ("RATE", "Hz");
+        depth    = std::make_unique<RotaryKnob> ("DEPTH", "");
+        feedback = std::make_unique<RotaryKnob> ("FDBK", "");
+        mixKnob  = std::make_unique<RotaryKnob> ("MIX", "%");
+
+        for (auto* k : { rate.get(), depth.get(), feedback.get(), mixKnob.get() })
+        {
+            k->setAccentColour (SynthColours::sectionFx);
+            addAndMakeVisible (*k);
+        }
+    }
+
+    void attach (juce::AudioProcessorValueTreeState& apvts)
+    {
+        enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::phaserEnabled, enableButton);
+        stagesAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, ParameterIDs::phaserStages, stagesBox);
+        rate->attach (apvts, ParameterIDs::phaserRate);
+        depth->attach (apvts, ParameterIDs::phaserDepth);
+        feedback->attach (apvts, ParameterIDs::phaserFeedback);
+        mixKnob->attach (apvts, ParameterIDs::phaserMix);
+    }
+
+    void resized() override
+    {
+        auto area = getKnobArea();
+        enableButton.setBounds (juce::Rectangle<int> (4, 15, 30, 16));
+
+        auto stagesRow = area.removeFromTop (22);
+        stagesBox.setBounds (stagesRow.reduced (4, 0));
+        area.removeFromTop (2);
+
+        int knobW = area.getWidth() / 2;
+        int rowH = area.getHeight() / 2;
+        auto row1 = area.removeFromTop (rowH);
+        rate->setBounds (row1.removeFromLeft (knobW));
+        depth->setBounds (row1);
+        auto row2 = area;
+        feedback->setBounds (row2.removeFromLeft (knobW));
+        mixKnob->setBounds (row2);
+    }
+
+private:
+    juce::ComboBox stagesBox;
+    std::unique_ptr<RotaryKnob> rate, depth, feedback, mixKnob;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> stagesAttach;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhaserModulePanel)
+};
+
+class FlangerModulePanel : public FXModulePanel
+{
+public:
+    FlangerModulePanel() : FXModulePanel (7, "FLANGE")
+    {
+        rate     = std::make_unique<RotaryKnob> ("RATE", "Hz");
+        depth    = std::make_unique<RotaryKnob> ("DEPTH", "");
+        feedback = std::make_unique<RotaryKnob> ("FDBK", "");
+        mixKnob  = std::make_unique<RotaryKnob> ("MIX", "%");
+
+        for (auto* k : { rate.get(), depth.get(), feedback.get(), mixKnob.get() })
+        {
+            k->setAccentColour (SynthColours::sectionFx);
+            addAndMakeVisible (*k);
+        }
+    }
+
+    void attach (juce::AudioProcessorValueTreeState& apvts)
+    {
+        enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::flangerEnabled, enableButton);
+        rate->attach (apvts, ParameterIDs::flangerRate);
+        depth->attach (apvts, ParameterIDs::flangerDepth);
+        feedback->attach (apvts, ParameterIDs::flangerFeedback);
+        mixKnob->attach (apvts, ParameterIDs::flangerMix);
+    }
+
+    void resized() override
+    {
+        auto area = getKnobArea();
+        enableButton.setBounds (juce::Rectangle<int> (4, 15, 30, 16));
+
+        int knobW = area.getWidth() / 2;
+        int rowH = area.getHeight() / 2;
+        auto row1 = area.removeFromTop (rowH);
+        rate->setBounds (row1.removeFromLeft (knobW));
+        depth->setBounds (row1);
+        auto row2 = area;
+        feedback->setBounds (row2.removeFromLeft (knobW));
+        mixKnob->setBounds (row2);
+    }
+
+private:
+    std::unique_ptr<RotaryKnob> rate, depth, feedback, mixKnob;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FlangerModulePanel)
+};
+
+class HyperModulePanel : public FXModulePanel
+{
+public:
+    HyperModulePanel() : FXModulePanel (8, "HYPER")
+    {
+        voicesBox.addItemList ({ "2", "4", "8" }, 1);
+        voicesBox.setSelectedId (1, juce::dontSendNotification);
+        addAndMakeVisible (voicesBox);
+
+        detune  = std::make_unique<RotaryKnob> ("DETUNE", "ct");
+        spread  = std::make_unique<RotaryKnob> ("SPREAD", "");
+        mixKnob = std::make_unique<RotaryKnob> ("MIX", "%");
+
+        for (auto* k : { detune.get(), spread.get(), mixKnob.get() })
+        {
+            k->setAccentColour (SynthColours::sectionFx);
+            addAndMakeVisible (*k);
+        }
+    }
+
+    void attach (juce::AudioProcessorValueTreeState& apvts)
+    {
+        enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::hyperEnabled, enableButton);
+        voicesAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, ParameterIDs::hyperVoices, voicesBox);
+        detune->attach (apvts, ParameterIDs::hyperDetune);
+        spread->attach (apvts, ParameterIDs::hyperSpread);
+        mixKnob->attach (apvts, ParameterIDs::hyperMix);
+    }
+
+    void resized() override
+    {
+        auto area = getKnobArea();
+        enableButton.setBounds (juce::Rectangle<int> (4, 15, 30, 16));
+
+        auto voicesRow = area.removeFromTop (22);
+        voicesBox.setBounds (voicesRow.reduced (4, 0));
+        area.removeFromTop (4);
+
+        int knobW = area.getWidth() / 3;
+        detune->setBounds (area.removeFromLeft (knobW));
+        spread->setBounds (area.removeFromLeft (knobW));
+        mixKnob->setBounds (area);
+    }
+
+private:
+    juce::ComboBox voicesBox;
+    std::unique_ptr<RotaryKnob> detune, spread, mixKnob;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voicesAttach;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HyperModulePanel)
+};

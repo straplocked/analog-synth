@@ -26,11 +26,45 @@ AnalogSynthProcessor::AnalogSynthProcessor()
                         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", ParameterLayout::createLayout())
 {
+    // Initialize LFO shape data child tree if not present
+    initLFOShapeData();
+
     auto logPath = juce::File::getSpecialLocation (juce::File::userDesktopDirectory)
                        .getChildFile ("AnalogSynth_debug.log")
                        .getFullPathName();
     DebugLog::instance().open (logPath);
     SYNTH_LOG ("AnalogSynth starting up");
+}
+
+void AnalogSynthProcessor::initLFOShapeData()
+{
+    if (! apvts.state.getChildWithName ("LFO_SHAPE_DATA").isValid())
+    {
+        juce::ValueTree shapeData ("LFO_SHAPE_DATA");
+
+        for (int lfoIdx = 0; lfoIdx < 3; ++lfoIdx)
+        {
+            juce::String prefix = "LFO" + juce::String (lfoIdx);
+
+            // Custom shape: default is ramp -1 to +1
+            juce::ValueTree custom (juce::Identifier (prefix + "_CUSTOM"));
+            custom.setProperty ("numPoints", 2, nullptr);
+            custom.setProperty ("x0", 0.0f, nullptr);
+            custom.setProperty ("y0", -1.0f, nullptr);
+            custom.setProperty ("x1", 1.0f, nullptr);
+            custom.setProperty ("y1", 1.0f, nullptr);
+            shapeData.addChild (custom, -1, nullptr);
+
+            // Step sequencer: default is 16 steps all at 0
+            juce::ValueTree stepSeq (juce::Identifier (prefix + "_STEPSEQ"));
+            stepSeq.setProperty ("numSteps", 16, nullptr);
+            for (int s = 0; s < 16; ++s)
+                stepSeq.setProperty (juce::Identifier ("s" + juce::String (s)), 0.0f, nullptr);
+            shapeData.addChild (stepSeq, -1, nullptr);
+        }
+
+        apvts.state.addChild (shapeData, -1, nullptr);
+    }
 }
 
 AnalogSynthProcessor::~AnalogSynthProcessor()
@@ -134,6 +168,10 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             {
                 voiceManager.setModWheel (msg.getControllerValue() / 127.0f);
             }
+            else if (msg.isChannelPressure())
+            {
+                voiceManager.setAftertouch (msg.getChannelPressureValue() / 127.0f);
+            }
             else if (msg.isAllNotesOff() || msg.isAllSoundOff())
             {
                 arpeggiator.allNotesOff();
@@ -180,6 +218,10 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             else if (msg.isController() && msg.getControllerNumber() == 1)
             {
                 voiceManager.setModWheel (msg.getControllerValue() / 127.0f);
+            }
+            else if (msg.isChannelPressure())
+            {
+                voiceManager.setAftertouch (msg.getChannelPressureValue() / 127.0f);
             }
             else if (msg.isAllNotesOff() || msg.isAllSoundOff())
                 voiceManager.allNotesOff();
@@ -285,7 +327,10 @@ void AnalogSynthProcessor::setStateInformation (const void* data, int sizeInByte
 {
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
     if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
+    {
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        initLFOShapeData(); // Ensure shape data exists after preset load
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -86,6 +86,11 @@ public:
         updateValueText();
     }
 
+    void detach()
+    {
+        attachment.reset();
+    }
+
     juce::Slider& getSlider() { return slider; }
 
 private:

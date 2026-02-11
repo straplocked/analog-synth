@@ -23,6 +23,8 @@
 #include <vector>
 #include "SynthVoice.h"
 #include "AnalogDrift.h"
+#include "ModMatrix.h"
+#include "ChaosOscillator.h"
 
 class VoiceManager
 {
@@ -41,9 +43,15 @@ public:
     void renderBlock (juce::AudioBuffer<float>& outputBuffer, int numSamples);
 
     void updateParameters (juce::AudioProcessorValueTreeState& apvts);
+    void updateLFOShapeData (juce::AudioProcessorValueTreeState& apvts);
 
     void setPitchBend (float normalised);  // -1 to +1
     void setModWheel (float value);        // 0 to 1
+    void setAftertouch (float value);      // 0 to 1
+
+    // Access mod values for FX modulation in processBlock
+    const ModMatrix& getModMatrix() const { return modMatrix; }
+    const GlobalModValues& getGlobalModValues() const { return globalModValues; }
 
     int getActiveVoiceCount() const;
 
@@ -68,6 +76,15 @@ private:
     bool unisonEnabled = false;
     float unisonDetuneCents = 15.0f;
     float unisonSpread = 1.0f;
+    int numUnisonVoices = kMaxVoices;
+
+    // Mod matrix and global mod values
+    ModMatrix modMatrix;
+    GlobalModValues globalModValues;
+    float aftertouchVal = 0.0f;
+
+    // Chaos oscillator (global modulation source)
+    ChaosOscillator chaosOsc;
 
     // Temp buffer for summing voices
     juce::HeapBlock<float> voiceBuffer;

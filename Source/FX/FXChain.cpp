@@ -21,9 +21,55 @@
 
 void FXChain::updateParameters (juce::AudioProcessorValueTreeState& apvts)
 {
-    // Read FX order parameter and decode permutation
-    int orderIndex = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::fxOrder)->load());
-    processingOrder = FXOrderUtils::permutationFromIndex (orderIndex);
+    // Read slot-based ordering
+    std::array<int, kNumEffects> newOrder;
+    for (int i = 0; i < kNumEffects; ++i)
+        newOrder[static_cast<std::size_t> (i)] = static_cast<int> (
+            apvts.getRawParameterValue (ParameterIDs::fxOrderSlotIDs[i])->load());
+
+    // Migration: if all slots are at identity defaults and old factoradic fxOrder != 0,
+    // decode the legacy 6-effect order and append new effects at the end
+    bool allDefaults = true;
+    for (int i = 0; i < kNumEffects; ++i)
+    {
+        if (newOrder[static_cast<std::size_t> (i)] != i)
+        {
+            allDefaults = false;
+            break;
+        }
+    }
+
+    if (allDefaults)
+    {
+        int oldOrder = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::fxOrder)->load());
+        if (oldOrder != 0)
+        {
+            auto legacy = FXOrderUtils::permutationFromIndex (oldOrder);
+            for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+                newOrder[static_cast<std::size_t> (i)] = legacy[static_cast<std::size_t> (i)];
+            newOrder[6] = kPhaser;
+            newOrder[7] = kFlanger;
+            newOrder[8] = kHyper;
+        }
+    }
+
+    // Validate: each effect index must appear exactly once
+    std::array<bool, kNumEffects> seen {};
+    bool valid = true;
+    for (int i = 0; i < kNumEffects; ++i)
+    {
+        int idx = newOrder[static_cast<std::size_t> (i)];
+        if (idx < 0 || idx >= kNumEffects || seen[static_cast<std::size_t> (idx)])
+        {
+            valid = false;
+            break;
+        }
+        seen[static_cast<std::size_t> (idx)] = true;
+    }
+
+    if (valid)
+        processingOrder = newOrder;
+    // else keep previous valid order
 
     // Let each effect read its own parameters
     for (auto& fx : effects)

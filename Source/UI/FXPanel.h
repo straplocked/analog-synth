@@ -23,13 +23,15 @@
 #include "AnalogSynthLookAndFeel.h"
 #include "FXModulePanel.h"
 #include "../ParameterIDs.h"
-#include "../FX/FXOrderUtils.h"
+#include "../FX/FXChain.h"
 
 class FXPanel : public juce::Component,
                 public juce::DragAndDropContainer,
                 public juce::Timer
 {
 public:
+    static constexpr int kNumModules = FXChain::kNumEffects; // 9
+
     FXPanel()
     {
         modules[0] = std::make_unique<DistortionModulePanel>();
@@ -38,6 +40,9 @@ public:
         modules[3] = std::make_unique<ChorusModulePanel>();
         modules[4] = std::make_unique<DelayModulePanel>();
         modules[5] = std::make_unique<ReverbModulePanel>();
+        modules[6] = std::make_unique<PhaserModulePanel>();
+        modules[7] = std::make_unique<FlangerModulePanel>();
+        modules[8] = std::make_unique<HyperModulePanel>();
 
         for (auto& m : modules)
         {
@@ -46,7 +51,7 @@ public:
         }
 
         // Default visual order
-        for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+        for (int i = 0; i < kNumModules; ++i)
             visualOrder[static_cast<std::size_t> (i)] = i;
     }
 
@@ -60,8 +65,11 @@ public:
         static_cast<ChorusModulePanel*> (modules[3].get())->attach (apvts);
         static_cast<DelayModulePanel*> (modules[4].get())->attach (apvts);
         static_cast<ReverbModulePanel*> (modules[5].get())->attach (apvts);
+        static_cast<PhaserModulePanel*> (modules[6].get())->attach (apvts);
+        static_cast<FlangerModulePanel*> (modules[7].get())->attach (apvts);
+        static_cast<HyperModulePanel*> (modules[8].get())->attach (apvts);
 
-        // Read initial order from parameter
+        // Read initial order from slot parameters
         readOrderFromParameter();
 
         startTimerHz (15); // Poll for sync state updates and order changes
@@ -108,8 +116,8 @@ public:
     }
 
 private:
-    std::array<std::unique_ptr<FXModulePanel>, FXOrderUtils::kNumEffects> modules;
-    std::array<int, FXOrderUtils::kNumEffects> visualOrder;
+    std::array<std::unique_ptr<FXModulePanel>, kNumModules> modules;
+    std::array<int, kNumModules> visualOrder;
     juce::AudioProcessorValueTreeState* apvtsRef = nullptr;
 
     void handleModuleDrop (int draggedFxIndex, int targetFxIndex, bool insertBefore)
@@ -120,7 +128,7 @@ private:
         // Find visual positions
         int draggedVisualPos = -1;
         int dropTargetVisualPos = -1;
-        for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+        for (int i = 0; i < kNumModules; ++i)
         {
             if (visualOrder[static_cast<std::size_t> (i)] == draggedFxIndex)
                 draggedVisualPos = i;
@@ -133,8 +141,8 @@ private:
 
         // Remove the dragged item and build a temp array without it
         std::vector<int> temp;
-        temp.reserve (FXOrderUtils::kNumEffects);
-        for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+        temp.reserve (kNumModules);
+        for (int i = 0; i < kNumModules; ++i)
         {
             if (visualOrder[static_cast<std::size_t> (i)] != draggedFxIndex)
                 temp.push_back (visualOrder[static_cast<std::size_t> (i)]);
@@ -153,15 +161,18 @@ private:
 
         temp.insert (temp.begin() + insertPos, draggedFxIndex);
 
-        for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+        for (int i = 0; i < kNumModules; ++i)
             visualOrder[static_cast<std::size_t> (i)] = temp[static_cast<std::size_t> (i)];
 
-        // Write to parameter
+        // Write to slot parameters
         if (apvtsRef != nullptr)
         {
-            int permIdx = FXOrderUtils::indexFromPermutation (visualOrder);
-            if (auto* param = apvtsRef->getParameter (ParameterIDs::fxOrder))
-                param->setValueNotifyingHost (param->convertTo0to1 (static_cast<float> (permIdx)));
+            for (int i = 0; i < kNumModules; ++i)
+            {
+                if (auto* param = apvtsRef->getParameter (ParameterIDs::fxOrderSlotIDs[i]))
+                    param->setValueNotifyingHost (param->convertTo0to1 (
+                        static_cast<float> (visualOrder[static_cast<std::size_t> (i)])));
+            }
         }
 
         layoutModules();
@@ -172,10 +183,51 @@ private:
     {
         if (apvtsRef == nullptr) return;
 
-        int orderIndex = static_cast<int> (apvtsRef->getRawParameterValue (ParameterIDs::fxOrder)->load());
-        auto newOrder = FXOrderUtils::permutationFromIndex (orderIndex);
+        // Read all 9 slot params
+        std::array<int, kNumModules> newOrder;
+        for (int i = 0; i < kNumModules; ++i)
+            newOrder[static_cast<std::size_t> (i)] = static_cast<int> (
+                apvtsRef->getRawParameterValue (ParameterIDs::fxOrderSlotIDs[i])->load());
 
-        if (newOrder != visualOrder)
+        // Migration: if all slots are at identity defaults and old factoradic != 0
+        bool allDefaults = true;
+        for (int i = 0; i < kNumModules; ++i)
+        {
+            if (newOrder[static_cast<std::size_t> (i)] != i)
+            {
+                allDefaults = false;
+                break;
+            }
+        }
+        if (allDefaults)
+        {
+            int oldOrder = static_cast<int> (apvtsRef->getRawParameterValue (ParameterIDs::fxOrder)->load());
+            if (oldOrder != 0)
+            {
+                auto legacy = FXOrderUtils::permutationFromIndex (oldOrder);
+                for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+                    newOrder[static_cast<std::size_t> (i)] = legacy[static_cast<std::size_t> (i)];
+                newOrder[6] = FXChain::kPhaser;
+                newOrder[7] = FXChain::kFlanger;
+                newOrder[8] = FXChain::kHyper;
+            }
+        }
+
+        // Validate: each index must appear exactly once
+        std::array<bool, kNumModules> seen {};
+        bool valid = true;
+        for (int i = 0; i < kNumModules; ++i)
+        {
+            int idx = newOrder[static_cast<std::size_t> (i)];
+            if (idx < 0 || idx >= kNumModules || seen[static_cast<std::size_t> (idx)])
+            {
+                valid = false;
+                break;
+            }
+            seen[static_cast<std::size_t> (idx)] = true;
+        }
+
+        if (valid && newOrder != visualOrder)
         {
             visualOrder = newOrder;
             layoutModules();
@@ -185,10 +237,10 @@ private:
     void layoutModules()
     {
         auto bounds = getLocalBounds().reduced (0, 4); // inset from rails
-        int moduleW = bounds.getWidth() / FXOrderUtils::kNumEffects;
+        int moduleW = bounds.getWidth() / kNumModules;
         int gap = 2;
 
-        for (int i = 0; i < FXOrderUtils::kNumEffects; ++i)
+        for (int i = 0; i < kNumModules; ++i)
         {
             int fxIdx = visualOrder[static_cast<std::size_t> (i)];
             auto moduleBounds = juce::Rectangle<int> (

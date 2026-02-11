@@ -78,7 +78,10 @@ add_executable(AnalogSynthTests
     Tests/TestDistortionEffect.cpp
     Tests/TestCompressorEffect.cpp
     Tests/TestFXChain.cpp
+    Tests/TestNewEffects.cpp
     Tests/TestArpeggiator.cpp
+    Tests/TestModMatrix.cpp
+    Tests/TestChaosOscillator.cpp
     Source/DSP/Arpeggiator.cpp
     Source/FX/FXChain.cpp
 )

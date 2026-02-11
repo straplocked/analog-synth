@@ -27,7 +27,7 @@ TEST_CASE ("FXChain construction", "[fx]")
 {
     FXChain chain;
 
-    SECTION ("Has 6 effects")
+    SECTION ("Has 9 effects")
     {
         for (int i = 0; i < FXChain::kNumEffects; ++i)
             REQUIRE (chain.getEffect (i) != nullptr);
@@ -36,7 +36,7 @@ TEST_CASE ("FXChain construction", "[fx]")
     SECTION ("Out of bounds returns nullptr")
     {
         REQUIRE (chain.getEffect (-1) == nullptr);
-        REQUIRE (chain.getEffect (6) == nullptr);
+        REQUIRE (chain.getEffect (9) == nullptr);
     }
 
     SECTION ("Default processing order is identity")
@@ -59,6 +59,9 @@ TEST_CASE ("FXChain effect identities", "[fx]")
         REQUIRE (chain.getEffect (FXChain::kChorus)->getEffectID() == "chorus");
         REQUIRE (chain.getEffect (FXChain::kDelay)->getEffectID() == "delay");
         REQUIRE (chain.getEffect (FXChain::kReverb)->getEffectID() == "reverb");
+        REQUIRE (chain.getEffect (FXChain::kPhaser)->getEffectID() == "phaser");
+        REQUIRE (chain.getEffect (FXChain::kFlanger)->getEffectID() == "flanger");
+        REQUIRE (chain.getEffect (FXChain::kHyper)->getEffectID() == "hyper");
     }
 }
 

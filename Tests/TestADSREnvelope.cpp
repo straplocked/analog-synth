@@ -187,6 +187,118 @@ TEST_CASE ("ADSREnvelope reset", "[dsp]")
     }
 }
 
+TEST_CASE ("ADSREnvelope hold stage", "[dsp]")
+{
+    ADSREnvelope env;
+    env.prepare (kSampleRate);
+    env.setAttack (0.001f);
+    env.setHold (0.01f); // 10ms hold
+    env.setDecay (0.01f);
+    env.setSustain (0.5f);
+    env.setRelease (0.01f);
+
+    env.noteOn (1.0f);
+
+    SECTION ("Hold keeps level at 1.0 before decay")
+    {
+        // Run through attack
+        for (int i = 0; i < 500; ++i)
+            env.processSample();
+
+        // Should be in Hold stage with level near 1.0
+        bool foundHold = false;
+        for (int i = 0; i < 500; ++i)
+        {
+            float s = env.processSample();
+            if (env.getStage() == ADSREnvelope::Stage::Hold)
+            {
+                REQUIRE (s == Catch::Approx (1.0f).margin (0.01f));
+                foundHold = true;
+            }
+        }
+        REQUIRE (foundHold);
+    }
+}
+
+TEST_CASE ("ADSREnvelope loop mode", "[dsp]")
+{
+    ADSREnvelope env;
+    env.prepare (kSampleRate);
+    env.setAttack (0.005f);
+    env.setDecay (0.005f);
+    env.setSustain (0.3f);
+    env.setRelease (0.01f);
+
+    SECTION ("Loop back to Attack after Decay (loopEnd=0)")
+    {
+        env.setLoopEnabled (true);
+        env.setLoopStart (0);  // Attack
+        env.setLoopEnd (0);    // After Decay
+
+        env.noteOn (1.0f);
+
+        // Run for 1 second — should cycle multiple times
+        int attackCount = 0;
+        ADSREnvelope::Stage prevStage = ADSREnvelope::Stage::Idle;
+        for (int i = 0; i < static_cast<int> (kSampleRate); ++i)
+        {
+            float s = env.processSample();
+            REQUIRE (std::isfinite (s));
+            REQUIRE (s >= 0.0f);
+            REQUIRE (s <= 1.01f);
+
+            auto curStage = env.getStage();
+            if (curStage == ADSREnvelope::Stage::Attack && prevStage != ADSREnvelope::Stage::Attack)
+                ++attackCount;
+            prevStage = curStage;
+        }
+
+        // Should have cycled at least 3 times in 1 second with these fast times
+        REQUIRE (attackCount >= 3);
+    }
+
+    SECTION ("Loop back to Decay at Sustain (loopEnd=1)")
+    {
+        env.setLoopEnabled (true);
+        env.setLoopStart (2);  // Decay
+        env.setLoopEnd (1);    // At Sustain
+
+        env.noteOn (1.0f);
+
+        // Run for 1 second
+        int decayCount = 0;
+        ADSREnvelope::Stage prevStage = ADSREnvelope::Stage::Idle;
+        for (int i = 0; i < static_cast<int> (kSampleRate); ++i)
+        {
+            float s = env.processSample();
+            REQUIRE (std::isfinite (s));
+            REQUIRE (s >= 0.0f);
+            REQUIRE (s <= 1.01f);
+
+            auto curStage = env.getStage();
+            if (curStage == ADSREnvelope::Stage::Decay && prevStage != ADSREnvelope::Stage::Decay)
+                ++decayCount;
+            prevStage = curStage;
+        }
+
+        // Should have cycled through decay multiple times
+        REQUIRE (decayCount >= 3);
+    }
+
+    SECTION ("Loop disabled does not cycle")
+    {
+        env.setLoopEnabled (false);
+        env.noteOn (1.0f);
+
+        // Run past attack+decay time
+        for (int i = 0; i < static_cast<int> (kSampleRate); ++i)
+            env.processSample();
+
+        // Should be in Sustain (not cycling)
+        REQUIRE (env.getStage() == ADSREnvelope::Stage::Sustain);
+    }
+}
+
 TEST_CASE ("ADSREnvelope output is always finite", "[dsp]")
 {
     ADSREnvelope env;

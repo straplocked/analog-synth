@@ -66,5 +66,7 @@ private:
     Arpeggiator arpeggiator;
     FXChain fxChain;
 
+    void initLFOShapeData();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalogSynthProcessor)
 };

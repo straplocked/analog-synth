@@ -23,7 +23,7 @@
 #include "AnalogSynthLookAndFeel.h"
 #include "EnvelopePanel.h"
 #include "LFOPanel.h"
-#include "PolyModPanel.h"
+#include "ModMatrixPanel.h"
 #include "FXPanel.h"
 #include "GlobalPanel.h"
 
@@ -35,17 +35,17 @@ public:
     {
         tabbedComponent.setTabBarDepth (30);
 
-        envPanel     = std::make_unique<EnvelopePanel>();
-        lfoPanel     = std::make_unique<LFOPanel>();
-        polyModPanel = std::make_unique<PolyModPanel>();
-        fxPanel      = std::make_unique<FXPanel>();
-        globalPanel  = std::make_unique<GlobalPanel>();
+        envPanel       = std::make_unique<EnvelopePanel>();
+        lfoPanel       = std::make_unique<LFOPanel>();
+        modMatrixPanel = std::make_unique<ModMatrixPanel>();
+        fxPanel        = std::make_unique<FXPanel>();
+        globalPanel    = std::make_unique<GlobalPanel>();
 
-        tabbedComponent.addTab ("ENV",      SynthColours::panelBg, envPanel.get(),      false);
-        tabbedComponent.addTab ("LFO",      SynthColours::panelBg, lfoPanel.get(),      false);
-        tabbedComponent.addTab ("POLY MOD", SynthColours::panelBg, polyModPanel.get(),  false);
-        tabbedComponent.addTab ("FX",       SynthColours::panelBg, fxPanel.get(),       false);
-        tabbedComponent.addTab ("GLOBAL",   SynthColours::panelBg, globalPanel.get(),   false);
+        tabbedComponent.addTab ("ENV",        SynthColours::panelBg, envPanel.get(),       false);
+        tabbedComponent.addTab ("LFO",        SynthColours::panelBg, lfoPanel.get(),       false);
+        tabbedComponent.addTab ("MOD MATRIX", SynthColours::panelBg, modMatrixPanel.get(), false);
+        tabbedComponent.addTab ("FX",         SynthColours::panelBg, fxPanel.get(),        false);
+        tabbedComponent.addTab ("GLOBAL",     SynthColours::panelBg, globalPanel.get(),    false);
 
         addAndMakeVisible (tabbedComponent);
     }
@@ -54,7 +54,7 @@ public:
     {
         envPanel->attach (apvts);
         lfoPanel->attach (apvts);
-        polyModPanel->attach (apvts);
+        modMatrixPanel->attach (apvts);
         fxPanel->attach (apvts);
         globalPanel->attach (apvts);
     }
@@ -80,7 +80,7 @@ private:
 
     std::unique_ptr<EnvelopePanel> envPanel;
     std::unique_ptr<LFOPanel> lfoPanel;
-    std::unique_ptr<PolyModPanel> polyModPanel;
+    std::unique_ptr<ModMatrixPanel> modMatrixPanel;
     std::unique_ptr<FXPanel> fxPanel;
     std::unique_ptr<GlobalPanel> globalPanel;
 

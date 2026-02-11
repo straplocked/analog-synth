@@ -97,6 +97,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::StringArray { "-1 Oct", "-2 Oct" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::noiseLevel, 1 }, "Noise Level", pctRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::noiseType, 2 }, "Noise Type",
+        juce::StringArray { "White", "Pink", "Brown" }, 0));
 
     // ---- Low-Pass Filter ----
     layout.add (std::make_unique<juce::AudioParameterChoice> (
@@ -125,6 +128,8 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::filterEnvAttack, 1 }, "Filter Env Attack", timeRange, 0.01f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::filterEnvHold, 2 }, "Filter Env Hold", timeRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::filterEnvDecay, 1 }, "Filter Env Decay", timeRange, 0.3f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::filterEnvSustain, 1 }, "Filter Env Sustain", pctRange, 0.5f));
@@ -137,6 +142,8 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::ampEnvAttack, 1 }, "Amp Env Attack", timeRange, 0.005f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::ampEnvHold, 2 }, "Amp Env Hold", timeRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::ampEnvDecay, 1 }, "Amp Env Decay", timeRange, 0.3f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::ampEnvSustain, 1 }, "Amp Env Sustain", pctRange, 0.8f));
@@ -148,7 +155,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     // ---- LFO ----
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { ParameterIDs::lfoShape, 1 }, "LFO Shape",
-        juce::StringArray { "Triangle", "Saw", "Square", "Random", "Sine" }, 0));
+        juce::StringArray { "Triangle", "Saw", "Square", "Random", "Sine", "Custom", "Step Seq" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::lfoRate, 1 }, "LFO Rate",
         juce::NormalisableRange<float> (0.01f, 30.0f, 0.01f, 0.3f), 2.0f));
@@ -304,9 +311,193 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::reverbMix, 1 }, "Reverb Mix", pctRange, 0.2f));
 
-    // ---- FX Chain Order ----
+    // ---- LFO 2 ----
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::lfo2Shape, 2 }, "LFO2 Shape",
+        juce::StringArray { "Triangle", "Saw", "Square", "Random", "Sine", "Custom", "Step Seq" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::lfo2Rate, 2 }, "LFO2 Rate",
+        juce::NormalisableRange<float> (0.01f, 30.0f, 0.01f, 0.3f), 2.0f));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo2Sync, 2 }, "LFO2 Sync", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::lfo2SyncDiv, 2 }, "LFO2 Sync Div",
+        juce::StringArray { "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars" }, 6));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo2KeySync, 2 }, "LFO2 Key Sync", false));
+
+    // ---- LFO 3 ----
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::lfo3Shape, 2 }, "LFO3 Shape",
+        juce::StringArray { "Triangle", "Saw", "Square", "Random", "Sine", "Custom", "Step Seq" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::lfo3Rate, 2 }, "LFO3 Rate",
+        juce::NormalisableRange<float> (0.01f, 30.0f, 0.01f, 0.3f), 2.0f));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo3Sync, 2 }, "LFO3 Sync", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::lfo3SyncDiv, 2 }, "LFO3 Sync Div",
+        juce::StringArray { "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars" }, 6));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo3KeySync, 2 }, "LFO3 Key Sync", false));
+
+    // ---- LFO Step Sequencer Smooth ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo1StepSmooth, 2 }, "LFO1 Step Smooth", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo2StepSmooth, 2 }, "LFO2 Step Smooth", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::lfo3StepSmooth, 2 }, "LFO3 Step Smooth", false));
+
+    // ---- Envelope 3 ----
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Attack, 2 }, "Env3 Attack", timeRange, 0.01f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Hold, 2 }, "Env3 Hold", timeRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Decay, 2 }, "Env3 Decay", timeRange, 0.3f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Sustain, 2 }, "Env3 Sustain", pctRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Release, 2 }, "Env3 Release", timeRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env3Velocity, 2 }, "Env3 Velocity", pctRange, 0.5f));
+
+    // ---- Envelope 4 ----
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Attack, 2 }, "Env4 Attack", timeRange, 0.01f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Hold, 2 }, "Env4 Hold", timeRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Decay, 2 }, "Env4 Decay", timeRange, 0.3f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Sustain, 2 }, "Env4 Sustain", pctRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Release, 2 }, "Env4 Release", timeRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::env4Velocity, 2 }, "Env4 Velocity", pctRange, 0.5f));
+
+    // ---- Envelope Loop (Env3/Env4 only) ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::env3LoopEnabled, 2 }, "Env3 Loop", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::env3LoopStart, 2 }, "Env3 Loop Start",
+        juce::StringArray { "Attack", "Hold", "Decay" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::env3LoopEnd, 2 }, "Env3 Loop End",
+        juce::StringArray { "After Decay", "At Sustain" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::env4LoopEnabled, 2 }, "Env4 Loop", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::env4LoopStart, 2 }, "Env4 Loop Start",
+        juce::StringArray { "Attack", "Hold", "Decay" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::env4LoopEnd, 2 }, "Env4 Loop End",
+        juce::StringArray { "After Decay", "At Sustain" }, 0));
+
+    // ---- Macros ----
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::macro1, 2 }, "Macro 1", pctRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::macro2, 2 }, "Macro 2", pctRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::macro3, 2 }, "Macro 3", pctRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::macro4, 2 }, "Macro 4", pctRange, 0.0f));
+
+    // ---- Mod Matrix (16 slots) ----
+    {
+        juce::StringArray sourceNames { "None", "Filter Env", "Amp Env", "Env 3", "Env 4",
+                                        "LFO 1", "LFO 2", "LFO 3",
+                                        "Velocity", "Note Number", "Mod Wheel",
+                                        "Aftertouch", "Pitch Bend", "Random",
+                                        "Macro 1", "Macro 2", "Macro 3", "Macro 4",
+                                        "Chaos" };
+
+        juce::StringArray destNames { "None", "Osc1 Freq", "Osc2 Freq", "Osc3 Freq",
+                                      "Osc1 PW", "Osc2 PW", "Osc3 PW",
+                                      "Osc1 Level", "Osc2 Level", "Osc3 Level",
+                                      "Sub Level", "Noise Level",
+                                      "LPF Cutoff", "LPF Resonance", "HPF Cutoff",
+                                      "Filter Drive", "Filter Env Amt", "Amp Level",
+                                      "LFO1 Rate", "LFO2 Rate", "LFO3 Rate",
+                                      "Dist Drive", "Dist Mix",
+                                      "Chorus Rate", "Chorus Depth", "Chorus Mix",
+                                      "Delay Time", "Delay Feedback", "Delay Mix",
+                                      "Reverb Size", "Reverb Mix" };
+
+        for (int i = 0; i < 16; ++i)
+        {
+            auto slotStr = juce::String (i);
+            layout.add (std::make_unique<juce::AudioParameterChoice> (
+                juce::ParameterID { ParameterIDs::modSlotSourceIDs[i], 2 },
+                "Mod Slot " + slotStr + " Source", sourceNames, 0));
+            layout.add (std::make_unique<juce::AudioParameterChoice> (
+                juce::ParameterID { ParameterIDs::modSlotDestIDs[i], 2 },
+                "Mod Slot " + slotStr + " Dest", destNames, 0));
+            layout.add (std::make_unique<juce::AudioParameterFloat> (
+                juce::ParameterID { ParameterIDs::modSlotAmountIDs[i], 2 },
+                "Mod Slot " + slotStr + " Amount", biRange, 0.0f));
+        }
+    }
+
+    // ---- FX Chain Order (legacy — kept for preset migration) ----
     layout.add (std::make_unique<juce::AudioParameterInt> (
         juce::ParameterID { ParameterIDs::fxOrder, 1 }, "FX Order", 0, 719, 0));
+
+    // ---- FX Chain Slot-Based Ordering (9 slots) ----
+    for (int i = 0; i < 9; ++i)
+    {
+        layout.add (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { ParameterIDs::fxOrderSlotIDs[i], 2 },
+            "FX Order Slot " + juce::String (i), 0, 8, i));
+    }
+
+    // ---- Phaser ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::phaserEnabled, 2 }, "Phaser On", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::phaserRate, 2 }, "Phaser Rate",
+        juce::NormalisableRange<float> (0.05f, 10.0f, 0.01f, 0.3f), 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::phaserDepth, 2 }, "Phaser Depth", pctRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::phaserFeedback, 2 }, "Phaser Feedback",
+        juce::NormalisableRange<float> (0.0f, 0.95f, 0.01f), 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::phaserStages, 2 }, "Phaser Stages",
+        juce::StringArray { "4", "6", "8" }, 1));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::phaserMix, 2 }, "Phaser Mix", pctRange, 0.5f));
+
+    // ---- Flanger ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::flangerEnabled, 2 }, "Flanger On", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::flangerRate, 2 }, "Flanger Rate",
+        juce::NormalisableRange<float> (0.05f, 10.0f, 0.01f, 0.3f), 0.3f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::flangerDepth, 2 }, "Flanger Depth", pctRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::flangerFeedback, 2 }, "Flanger Feedback",
+        juce::NormalisableRange<float> (-0.95f, 0.95f, 0.01f), 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::flangerMix, 2 }, "Flanger Mix", pctRange, 0.5f));
+
+    // ---- Hyper/Dimension ----
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParameterIDs::hyperEnabled, 2 }, "Hyper On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::hyperVoices, 2 }, "Hyper Voices",
+        juce::StringArray { "2", "4", "8" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::hyperDetune, 2 }, "Hyper Detune",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 10.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::hyperSpread, 2 }, "Hyper Spread", pctRange, 0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::hyperMix, 2 }, "Hyper Mix", pctRange, 0.5f));
 
     // ---- Global ----
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -318,7 +509,10 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::ParameterID { ParameterIDs::unison, 1 }, "Unison", false));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::unisonDetune, 1 }, "Unison Detune",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 15.0f));
+        juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 15.0f));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { ParameterIDs::unisonVoices, 2 }, "Unison Voices",
+        juce::StringArray { "2", "3", "4", "5", "6" }, 4));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::unisonSpread, 1 }, "Unison Spread", pctRange, 1.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -333,6 +527,14 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParameterIDs::masterTune, 1 }, "Master Tune",
         juce::NormalisableRange<float> (430.0f, 450.0f, 0.1f), 440.0f));
+
+    // ---- Chaos Oscillator ----
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::chaosRate, 2 }, "Chaos Rate",
+        juce::NormalisableRange<float> (0.01f, 10.0f, 0.01f, 0.3f), 1.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParameterIDs::chaosAmount, 2 }, "Chaos Amount",
+        pctRange, 0.5f));
 
     // ---- Arpeggiator ----
     layout.add (std::make_unique<juce::AudioParameterBool> (
