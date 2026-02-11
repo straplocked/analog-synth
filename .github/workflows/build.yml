@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-13
             name: macOS
           - os: ubuntu-latest
             name: Linux
@@ -32,7 +32,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxcursor-dev libxinerama-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxcursor-dev libxinerama-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev libwebkit2gtk-4.1-dev
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release

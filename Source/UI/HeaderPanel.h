@@ -241,7 +241,7 @@ private:
         menu.showMenuAsync (juce::PopupMenu::Options()
                                 .withTargetComponent (presetLabel)
                                 .withMinimumWidth (220),
-                            [this] (int result)
+                            [this, kInitID, kPresetOffset] (int result)
                             {
                                 if (result == kInitID)
                                     presetMgr->initPreset();
