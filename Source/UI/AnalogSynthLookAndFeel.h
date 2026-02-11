@@ -175,6 +175,10 @@ public:
                                     float bezelWidth = 3.0f);
 
 private:
-    juce::Typeface::Ptr interRegular;
-    juce::Typeface::Ptr interBold;
+    juce::Typeface::Ptr fontRegular;
+    juce::Typeface::Ptr fontBold;
+    juce::Typeface::Ptr fontDisplay;
+
+public:
+    juce::Typeface::Ptr getDisplayTypeface() const { return fontDisplay; }
 };

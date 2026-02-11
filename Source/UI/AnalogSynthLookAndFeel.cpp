@@ -20,13 +20,17 @@
 
 AnalogSynthLookAndFeel::AnalogSynthLookAndFeel()
 {
-    interRegular = juce::Typeface::createSystemTypefaceFor (
-        BinaryData::InterRegular_ttf,
-        BinaryData::InterRegular_ttfSize);
+    fontRegular = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::SpaceGroteskRegular_ttf,
+        BinaryData::SpaceGroteskRegular_ttfSize);
 
-    interBold = juce::Typeface::createSystemTypefaceFor (
-        BinaryData::InterBold_ttf,
-        BinaryData::InterBold_ttfSize);
+    fontBold = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::SpaceGroteskBold_ttf,
+        BinaryData::SpaceGroteskBold_ttfSize);
+
+    fontDisplay = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::AudiowideRegular_ttf,
+        BinaryData::AudiowideRegular_ttfSize);
 
     setColourScheme (getDarkColourScheme());
 
@@ -48,8 +52,8 @@ AnalogSynthLookAndFeel::AnalogSynthLookAndFeel()
 juce::Typeface::Ptr AnalogSynthLookAndFeel::getTypefaceForFont (const juce::Font& font)
 {
     if (font.isBold())
-        return interBold;
-    return interRegular;
+        return fontBold;
+    return fontRegular;
 }
 
 //==============================================================================

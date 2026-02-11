@@ -40,7 +40,7 @@ public:
         filterAmpButton.setClickingTogglesState (true);
         filterAmpButton.setColour (juce::TextButton::buttonColourId, SynthColours::panelBg);
         filterAmpButton.setColour (juce::TextButton::buttonOnColourId, SynthColours::sectionEnv.withAlpha (0.3f));
-        filterAmpButton.setColour (juce::TextButton::textColourOnId, SynthColours::sectionEnv);
+        filterAmpButton.setColour (juce::TextButton::textColourOnId, SynthColours::silkscreen);
         filterAmpButton.setToggleState (true, juce::dontSendNotification);
         filterAmpButton.onClick = [this] { selectPair (0); };
         addAndMakeVisible (filterAmpButton);
@@ -50,7 +50,7 @@ public:
         env34Button.setClickingTogglesState (true);
         env34Button.setColour (juce::TextButton::buttonColourId, SynthColours::panelBg);
         env34Button.setColour (juce::TextButton::buttonOnColourId, SynthColours::sectionEnv.withAlpha (0.3f));
-        env34Button.setColour (juce::TextButton::textColourOnId, SynthColours::sectionEnv);
+        env34Button.setColour (juce::TextButton::textColourOnId, SynthColours::silkscreen);
         env34Button.onClick = [this] { selectPair (1); };
         addAndMakeVisible (env34Button);
 

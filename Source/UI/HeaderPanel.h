@@ -33,7 +33,10 @@ public:
     HeaderPanel()
     {
         titleLabel.setText ("ANALOG SYNTH", juce::dontSendNotification);
-        titleLabel.setFont (juce::Font (18.0f).boldened());
+        auto displayTypeface = juce::Typeface::createSystemTypefaceFor (
+            BinaryData::AudiowideRegular_ttf,
+            BinaryData::AudiowideRegular_ttfSize);
+        titleLabel.setFont (juce::Font (displayTypeface).withHeight (18.0f));
         titleLabel.setColour (juce::Label::textColourId, SynthColours::silkscreen);
         titleLabel.setJustificationType (juce::Justification::centredLeft);
         addAndMakeVisible (titleLabel);

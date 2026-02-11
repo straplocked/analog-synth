@@ -9,8 +9,9 @@ add_subdirectory(ThirdParty/JUCE)
 # Embed font resources as binary data
 juce_add_binary_data(AnalogSynthBinaryData
     SOURCES
-        Resources/Fonts/Inter-Regular.ttf
-        Resources/Fonts/Inter-Bold.ttf
+        Resources/Fonts/SpaceGrotesk-Regular.ttf
+        Resources/Fonts/SpaceGrotesk-Bold.ttf
+        Resources/Fonts/Audiowide-Regular.ttf
 )
 
 juce_add_plugin(AnalogSynth

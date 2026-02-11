@@ -39,7 +39,7 @@ public:
             lfoButtons[i].setClickingTogglesState (true);
             lfoButtons[i].setColour (juce::TextButton::buttonColourId, SynthColours::panelBg);
             lfoButtons[i].setColour (juce::TextButton::buttonOnColourId, SynthColours::sectionLfo.withAlpha (0.3f));
-            lfoButtons[i].setColour (juce::TextButton::textColourOnId, SynthColours::sectionLfo);
+            lfoButtons[i].setColour (juce::TextButton::textColourOnId, SynthColours::silkscreen);
             lfoButtons[i].onClick = [this, i] { selectLFO (i); };
             addAndMakeVisible (lfoButtons[i]);
         }
