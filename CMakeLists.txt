@@ -44,6 +44,7 @@ target_compile_definitions(AnalogSynth PUBLIC
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
+    $<$<CXX_COMPILER_ID:MSVC>:_USE_MATH_DEFINES>
 )
 
 target_link_libraries(AnalogSynth
@@ -100,4 +101,5 @@ target_compile_definitions(AnalogSynthTests PUBLIC
     JUCE_USE_CURL=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_STANDALONE_APPLICATION=1
+    $<$<CXX_COMPILER_ID:MSVC>:_USE_MATH_DEFINES>
 )
