@@ -1,6 +1,23 @@
+# Build
 build/
+cmake-build-*/
+CMakeUserPresets.json
+
+# IDEs
+.vscode/
+.idea/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Claude Code
 .claude/
+
+# Editor temp files
 *.user
 *.swp
 *~

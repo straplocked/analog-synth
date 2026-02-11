@@ -15,11 +15,11 @@ juce_add_binary_data(AnalogSynthBinaryData
 
 juce_add_plugin(AnalogSynth
     COMPANY_NAME "AnalogSynth"
-    PLUGIN_MANUFACTURER_CODE Chrs
+    PLUGIN_MANUFACTURER_CODE AnSy
     PLUGIN_CODE ASyn
     FORMATS VST3 Standalone AU
     PRODUCT_NAME "AnalogSynth"
-    BUNDLE_ID "com.chrismusic.analogsynth"
+    BUNDLE_ID "com.analogsynth.plugin"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
