@@ -68,6 +68,23 @@ UI components attach to APVTS via `SliderAttachment`/`ButtonAttachment`/`ComboBo
 - **LFO** (global): routes to osc freq, pulse width, filter cutoff, amplitude; tempo-syncable
 - **Poly Mod** (per-voice, Prophet-6 style): Filter Envelope and Osc2 audio as sources → Osc1 freq/shape/PW, filter cutoffs
 
+## Tests
+
+```bash
+cmake -B build && cmake --build build --target AnalogSynthTests
+./build/AnalogSynthTests
+```
+
+86 test cases using Catch2 v3.5.2 (amalgamated, header-only) in `Tests/`. Covers all pure DSP and utility classes:
+
+- **Math/Utility**: `MathHelpers` (note/freq/dB conversions), `FastMath` (exp2/exp/tan approximations), `Saturation` (softClip/warmSaturate/tapeStyle), `SmoothParam` (one-pole smoothing), `FXOrderUtils` (factoradic permutation math)
+- **Oscillators**: `PolyBLEPOscillator` (all 4 waveforms, phase wrap, renderBlock), `SubOscillator` (waveforms, octave offset), `NoiseGenerator` (statistical properties, determinism)
+- **Filters**: `LadderFilter` (LP behavior, resonance, 2/4-pole), `FilterEngine` (all 5 types, slope switching), `StateVariableHPF` (HP behavior, DC blocking)
+- **Envelopes/Modulators**: `ADSREnvelope` (stage transitions, velocity, timing), `LFO` (all shapes, rate, phase offset), `AnalogDrift` (per-voice uniqueness, amount scaling)
+- **Mixer/Routing**: `Mixer` (level mixing, soft clipping), `PolyModRouter` (isActive predicates)
+- **FX**: `DistortionEffect` (enable/disable, all types), `CompressorEffect` (passthrough, finite output), `FXChain` (construction, NaN safety, ordering)
+- **Sequencing**: `Arpeggiator` (Up/Down modes, octave expansion, latch, note-off cleanup)
+
 ## Conventions
 
 - C++17, `juce::` prefix everywhere (no `using namespace juce`)

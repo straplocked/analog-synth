@@ -55,3 +55,45 @@ target_link_libraries(AnalogSynth
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# ---- Unit Tests ----
+add_executable(AnalogSynthTests
+    Tests/catch_amalgamated.cpp
+    Tests/TestMathHelpers.cpp
+    Tests/TestFastMath.cpp
+    Tests/TestSaturation.cpp
+    Tests/TestFXOrderUtils.cpp
+    Tests/TestSmoothParam.cpp
+    Tests/TestPolyBLEPOscillator.cpp
+    Tests/TestSubOscillator.cpp
+    Tests/TestNoiseGenerator.cpp
+    Tests/TestADSREnvelope.cpp
+    Tests/TestLFO.cpp
+    Tests/TestAnalogDrift.cpp
+    Tests/TestMixer.cpp
+    Tests/TestPolyModRouter.cpp
+    Tests/TestLadderFilter.cpp
+    Tests/TestFilterEngine.cpp
+    Tests/TestStateVariableHPF.cpp
+    Tests/TestDistortionEffect.cpp
+    Tests/TestCompressorEffect.cpp
+    Tests/TestFXChain.cpp
+    Tests/TestArpeggiator.cpp
+    Source/DSP/Arpeggiator.cpp
+    Source/FX/FXChain.cpp
+)
+
+target_include_directories(AnalogSynthTests PRIVATE Source Tests)
+
+target_link_libraries(AnalogSynthTests
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp
+)
+
+target_compile_definitions(AnalogSynthTests PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    JUCE_STANDALONE_APPLICATION=1
+)
