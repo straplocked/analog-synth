@@ -12,7 +12,6 @@ public:
     {
         sampleRate = newSampleRate;
         phase = 0.0;
-        integratedSaw = 0.0;
         prevPulseWidth = 0.5f;
         phaseWrapped = false;
         wrapFraction = 0.0;
@@ -43,7 +42,6 @@ public:
         // Reset phase to where it would be after the partial sample
         phase = fraction * phaseIncrement;
         syncTriggered = true;
-        integratedSaw = 0.0;
     }
 
     float processSample()
@@ -131,22 +129,27 @@ public:
 
             case Waveform::Triangle:
             {
-                // Leaky integrator of a square wave to produce triangle
-                double sq = (phase < 0.5) ? 1.0 : -1.0;
-                // Apply PolyBLEP to the square wave
-                sq -= polyBLEP (phase, dt);
+                // Direct PolyBLAMP triangle: naive triangle + BLAMP corrections
+                // Naive triangle: rises from -1 to +1 over [0, 0.5], falls over [0.5, 1]
+                double naiveTri;
+                if (phase < 0.5)
+                    naiveTri = 4.0 * phase - 1.0;
+                else
+                    naiveTri = 3.0 - 4.0 * phase;
+
+                // PolyBLAMP corrections at the two slope discontinuities
+                // At phase=0 (trough): slope changes from -4 to +4
+                // At phase=0.5 (peak): slope changes from +4 to -4
+                double blampScale = 4.0 * dt;
+                naiveTri += blampScale * polyBLAMP (phase, dt);
+
                 double shiftedPhase = phase + 0.5;
                 if (shiftedPhase >= 1.0)
                     shiftedPhase -= 1.0;
-                sq += polyBLEP (shiftedPhase, dt);
+                naiveTri -= blampScale * polyBLAMP (shiftedPhase, dt);
 
-                // Integrate with leaky integrator
-                integratedSaw += dt * sq * 4.0;
-                // DC correction via leaky integrator
-                integratedSaw *= (1.0 - dt * 0.5);
-
-                output = static_cast<float> (integratedSaw);
-                syncTriggered = false; // sync on triangle just resets integrator (done in syncResetAt)
+                output = static_cast<float> (naiveTri);
+                syncTriggered = false;
                 break;
             }
         }
@@ -168,7 +171,6 @@ private:
     Waveform waveform = Waveform::Saw;
     float pulseWidth = 0.5f;
     float prevPulseWidth = 0.5f;
-    double integratedSaw = 0.0;
 
     // Phase jitter (VCO analog imperfection)
     float jitterValue = 0.0f;
@@ -221,6 +223,24 @@ private:
         {
             double x = (t - 1.0) / dt;
             return x * x + x + x + 1.0;
+        }
+        return 0.0;
+    }
+
+    // PolyBLAMP: integral of polyBLEP, corrects 1st-order (ramp) discontinuities
+    static double polyBLAMP (double t, double dt)
+    {
+        if (t < dt)
+        {
+            double x = t / dt;
+            double x2 = x * x;
+            return x2 - x2 * x / 3.0 - x;
+        }
+        else if (t > 1.0 - dt)
+        {
+            double x = (t - 1.0) / dt;
+            double x2 = x * x;
+            return x2 * x / 3.0 + x2 + x;
         }
         return 0.0;
     }

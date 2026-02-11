@@ -28,7 +28,8 @@ void SynthVoice::prepare (double newSampleRate, int samplesPerBlock)
 
     // Allocate oversampled buffer
     oversampledBuffer.allocate (samplesPerBlock * kOversampleFactor, true);
-    std::fill (firState, firState + kFIRLen, 0.0f);
+    std::fill (firState, firState + kFIRBufSize, 0.0f);
+    firWritePos = 0;
 
     // Prepare pink noise generators with unique seeds
     phaseJitter1.prepare (54321);
@@ -200,25 +201,27 @@ void SynthVoice::renderBlock (float* output, int numSamples)
     // Render at oversampled rate into temporary buffer
     renderOversampled (oversampledBuffer, oversampledSamples);
 
-    // Decimate with half-band FIR filter
+    // Decimate with 15-tap half-band FIR (~43dB stopband, circular buffer)
     for (int i = 0; i < numSamples; ++i)
     {
-        // Shift FIR state and insert new samples (take every kOversampleFactor-th output)
         int srcIdx = i * kOversampleFactor;
 
-        // Process both oversampled samples through the FIR
-        for (int os = 0; os < kOversampleFactor; ++os)
-        {
-            // Shift state left
-            for (int k = 0; k < kFIRLen - 1; ++k)
-                firState[k] = firState[k + 1];
-            firState[kFIRLen - 1] = oversampledBuffer[srcIdx + os];
-        }
+        // Push both oversampled samples into circular buffer
+        firState[firWritePos & kFIRBufMask] = oversampledBuffer[srcIdx];
+        ++firWritePos;
+        firState[firWritePos & kFIRBufMask] = oversampledBuffer[srcIdx + 1];
+        ++firWritePos;
 
-        // Apply FIR and output one sample
-        float sum = 0.0f;
-        for (int k = 0; k < kFIRLen; ++k)
-            sum += firState[k] * halfBandFIR[k];
+        // FIR convolution exploiting half-band symmetry (5 multiply-adds)
+        // rp+1 skips the stale slot at firWritePos (16th-oldest, outside our 15-tap window)
+        int rp = firWritePos + 1;
+        auto at = [&] (int k) -> float { return firState[(rp + k) & kFIRBufMask]; };
+
+        float sum = halfBandFIR[0] * (at (0) + at (14))
+                  + halfBandFIR[2] * (at (2) + at (12))
+                  + halfBandFIR[4] * (at (4) + at (10))
+                  + halfBandFIR[6] * (at (6) + at (8))
+                  + halfBandFIR[7] * at (7);
 
         output[i] = sum;
     }
@@ -390,8 +393,15 @@ void SynthVoice::renderOversampled (float* output, int oversampledSamples)
         if (hasLFO && lfoAmounts.toAmp != 0.0f)
             ampMod *= std::max (0.0f, 1.0f + lfoAmounts.toAmp * lfoVal * 0.5f);
 
+        // VCA with OTA crossover distortion (models LM13700 dead zone near zero)
+        float vcaOut = mixed * ampMod;
+        constexpr float crossoverK = 50.0f;
+        float x2 = vcaOut * vcaOut;
+        float crossoverGain = x2 / (x2 + 1.0f / (crossoverK * crossoverK));
+        vcaOut *= crossoverGain;
+
         // Analog noise floor (approx -80dB)
-        float sample = mixed * ampMod + noiseFloor.processSample() * 0.0001f;
+        float sample = vcaOut + noiseFloor.processSample() * 0.0001f;
 
         // NaN/Inf safety net: if anything went wrong, output silence
         if (std::isnan (sample) || std::isinf (sample))

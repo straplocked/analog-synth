@@ -10,6 +10,7 @@ void VoiceManager::prepare (double newSampleRate, int newSamplesPerBlock)
     for (int i = 0; i < kMaxVoices; ++i)
     {
         voices[i].prepare (sampleRate, samplesPerBlock);
+        voices[i].setVoiceIndex (static_cast<uint32_t> (i));
         drift[i].prepare (sampleRate, static_cast<uint32_t> (i));
         voiceAge[i] = 0;
     }
@@ -241,6 +242,19 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
         if (rightChannel != nullptr)
             juce::FloatVectorOperations::copy (rightChannel, leftChannel, numSamples);
     }
+
+    // Bus saturation: transparent at normal levels, soft-clips when voices stack hot
+    // tanh(x/3)*3 is within 1.7% of linear at |x|<1, only engages above ~1.5
+    constexpr float kBusHeadroom = 3.0f;
+    constexpr float kBusInvHeadroom = 1.0f / kBusHeadroom;
+    for (int i = 0; i < numSamples; ++i)
+        leftChannel[i] = std::tanh (leftChannel[i] * kBusInvHeadroom) * kBusHeadroom;
+
+    if (rightChannel != nullptr)
+    {
+        for (int i = 0; i < numSamples; ++i)
+            rightChannel[i] = std::tanh (rightChannel[i] * kBusInvHeadroom) * kBusHeadroom;
+    }
 }
 
 // ---- Parameter update ----
@@ -317,6 +331,14 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         // Unison detune (only meaningful in unison mode, but harmless otherwise)
         if (! unisonEnabled)
             voice.setUnisonDetune (0.0f);
+
+        // In unison mode, all voices are one "super voice" — force identical LFO phase
+        // so filter/amp modulation doesn't make some voices nearly silent.
+        // In poly mode, use golden-ratio offsets for natural modulation spread.
+        if (unisonEnabled)
+            voice.setVoiceIndex (0);
+        else
+            voice.setVoiceIndex (static_cast<uint32_t> (v));
 
         // Filter type, slope, and per-voice analog drift offsets
         voice.setFilterType (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lpfType)->load()));

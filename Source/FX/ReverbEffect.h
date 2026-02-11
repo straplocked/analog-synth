@@ -21,6 +21,15 @@ public:
         dampingFilterL.reset();
         dampingFilterR.reset();
 
+        // Pre-delay: up to 100ms
+        int maxDelaySamples = static_cast<int> (sampleRate * 0.1) + 1;
+        juce::dsp::ProcessSpec monoSpec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), 1 };
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            preDelayLine[ch].setMaximumDelayInSamples (maxDelaySamples);
+            preDelayLine[ch].prepare (monoSpec);
+        }
+
         dryBuffer.setSize (2, samplesPerBlock);
     }
 
@@ -34,6 +43,21 @@ public:
         // Save dry signal
         for (int ch = 0; ch < numChannels; ++ch)
             dryBuffer.copyFrom (ch, 0, buffer, ch, 0, numSamples);
+
+        // Apply pre-delay before reverb
+        if (preDelayMs > 0.0f)
+        {
+            float delaySamples = preDelayMs * 0.001f * static_cast<float> (sr);
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                auto* data = buffer.getWritePointer (ch);
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    preDelayLine[ch].pushSample (0, data[i]);
+                    data[i] = preDelayLine[ch].popSample (0, delaySamples);
+                }
+            }
+        }
 
         // Process reverb (100% wet internally)
         juce::dsp::AudioBlock<float> block (buffer);
@@ -68,6 +92,8 @@ public:
         reverb.reset();
         dampingFilterL.reset();
         dampingFilterR.reset();
+        for (int ch = 0; ch < 2; ++ch)
+            preDelayLine[ch].reset();
     }
 
     void updateParameters (juce::AudioProcessorValueTreeState& apvts) override
@@ -77,6 +103,7 @@ public:
         size = apvts.getRawParameterValue (ParameterIDs::reverbSize)->load();
         damping = apvts.getRawParameterValue (ParameterIDs::reverbDamping)->load();
         wetLevel = apvts.getRawParameterValue (ParameterIDs::reverbMix)->load();
+        preDelayMs = apvts.getRawParameterValue (ParameterIDs::reverbPreDelay)->load();
         updateParams();
     }
 
@@ -92,6 +119,8 @@ private:
 
     juce::dsp::Reverb reverb;
     juce::dsp::IIR::Filter<float> dampingFilterL, dampingFilterR;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayLine[2];
+    float preDelayMs = 10.0f;
     juce::AudioBuffer<float> dryBuffer;
 
     void updateParams()

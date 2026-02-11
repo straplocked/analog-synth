@@ -82,6 +82,13 @@ public:
     // Unison detune
     void setUnisonDetune (float cents) { unisonDetuneCents = cents; }
 
+    // Per-voice LFO phase offset for natural modulation spread
+    void setVoiceIndex (uint32_t index)
+    {
+        double offset = std::fmod (static_cast<double> (index) * 0.381966011, 1.0);
+        lfo.setVoicePhaseOffset (offset);
+    }
+
     // Phase randomization for unison voices
     void setStartPhase (float phase01)
     {
@@ -180,9 +187,17 @@ private:
     // Oversampling
     double oversampledRate = 88200.0;
     juce::HeapBlock<float> oversampledBuffer;
-    static constexpr int kFIRLen = 7;
-    static constexpr float halfBandFIR[kFIRLen] = { -0.045f, 0.0f, 0.295f, 0.5f, 0.295f, 0.0f, -0.045f };
-    float firState[kFIRLen] = {};
+    // 15-tap half-band FIR (Hamming window, ~43dB stopband, DC gain = 1.0)
+    static constexpr int kFIRLen = 15;
+    static constexpr int kFIRBufSize = 16;
+    static constexpr int kFIRBufMask = kFIRBufSize - 1;
+    static constexpr float halfBandFIR[kFIRLen] = {
+        -0.003665f, 0.0f,  0.016237f, 0.0f, -0.068638f, 0.0f, 0.306066f,
+         0.5f,
+         0.306066f, 0.0f, -0.068638f, 0.0f,  0.016237f, 0.0f, -0.003665f
+    };
+    float firState[kFIRBufSize] = {};
+    int firWritePos = 0;
 
     void renderOversampled (float* output, int oversampledSamples);
 

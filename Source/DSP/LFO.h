@@ -11,21 +11,30 @@ public:
     void prepare (double newSampleRate)
     {
         sampleRate = newSampleRate;
-        phase = 0.0;
+        phase = voicePhaseOffset;
         randomValue = 0.0f;
-        prevPhase = 0.0;
+        prevPhase = voicePhaseOffset;
+        slewState = 0.0f;
+        // 2ms slew time: smooths clicks without removing punch
+        slewCoeff = 1.0f - std::exp (-1.0f / (static_cast<float> (newSampleRate) * 0.002f));
     }
 
     void setShape (int shapeIndex) { shape = static_cast<Shape> (shapeIndex); }
     void setRate (float hz) { rate = hz; }
     void setKeySync (bool enabled) { keySync = enabled; }
 
-    void resetPhase() { phase = 0.0; }
+    void resetPhase() { phase = voicePhaseOffset; }
+
+    void setVoicePhaseOffset (double offset)
+    {
+        voicePhaseOffset = std::fmod (std::abs (offset), 1.0);
+    }
 
     // Returns bipolar output [-1, +1]
     float processSample()
     {
         float output = 0.0f;
+        bool needsSlew = false;
 
         switch (shape)
         {
@@ -43,6 +52,7 @@ public:
 
             case Shape::Square:
                 output = (phase < 0.5) ? 1.0f : -1.0f;
+                needsSlew = true;
                 break;
 
             case Shape::Random:
@@ -58,6 +68,7 @@ public:
                                 / static_cast<float> (INT32_MAX);
                 }
                 output = randomValue;
+                needsSlew = true;
                 break;
             }
 
@@ -70,6 +81,13 @@ public:
         phase += rate / sampleRate;
         if (phase >= 1.0)
             phase -= 1.0;
+
+        // Apply one-pole slew to discontinuous waveforms (analog capacitor slew)
+        if (needsSlew)
+        {
+            slewState += slewCoeff * (output - slewState);
+            return slewState;
+        }
 
         return output;
     }
@@ -85,4 +103,11 @@ private:
     // For S&H random mode
     uint32_t randomState = 54321;
     float randomValue = 0.0f;
+
+    // Per-voice phase offset for natural modulation spread
+    double voicePhaseOffset = 0.0;
+
+    // Slew rate limiter for Square/S&H (analog capacitor slew)
+    float slewState = 0.0f;
+    float slewCoeff = 0.0f;
 };
