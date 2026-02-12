@@ -61,6 +61,12 @@ public:
     PresetManager presetManager { apvts };
     juce::MidiKeyboardState keyboardState;
 
+    // Envelope level pointers for UI (owned by VoiceManager)
+    std::atomic<float>* getEnvLevelFilter() { return &voiceManager.envLevelFilter; }
+    std::atomic<float>* getEnvLevelAmp()    { return &voiceManager.envLevelAmp; }
+    std::atomic<float>* getEnvLevelEnv3()   { return &voiceManager.envLevelEnv3; }
+    std::atomic<float>* getEnvLevelEnv4()   { return &voiceManager.envLevelEnv4; }
+
 private:
     VoiceManager voiceManager;
     Arpeggiator arpeggiator;

@@ -45,6 +45,12 @@ public:
     bool isActive() const { return ampEnv.isActive(); }
     int getCurrentNote() const { return currentNote; }
 
+    // Envelope level getters for UI display
+    float getFilterEnvLevel() const { return filterEnv.getCurrentLevel(); }
+    float getAmpEnvLevel() const { return ampEnv.getCurrentLevel(); }
+    float getEnv3Level() const { return env3.getCurrentLevel(); }
+    float getEnv4Level() const { return env4.getCurrentLevel(); }
+
     // Oscillators
     void setOsc1Waveform (int waveformIndex);
     void setOsc2Waveform (int waveformIndex);

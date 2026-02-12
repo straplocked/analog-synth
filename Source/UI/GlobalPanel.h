@@ -110,55 +110,64 @@ public:
         // Brushed metal background
         AnalogSynthLookAndFeel::fillBrushedMetal (g, bounds, SynthColours::faceplateDark);
 
-        // Engraved vertical divider
+        // Engraved vertical divider between voice and arp sections
         float halfX = bounds.getWidth() * 0.5f;
         g.setColour (SynthColours::faceplateEdge.darker (0.1f));
-        g.fillRect (halfX, bounds.getY() + 20.0f, 1.0f, bounds.getHeight() - 24.0f);
+        g.fillRect (halfX, bounds.getY() + 4.0f, 1.0f, bounds.getHeight() - 8.0f);
         g.setColour (SynthColours::faceplateMid.brighter (0.08f));
-        g.fillRect (halfX + 1.0f, bounds.getY() + 20.0f, 1.0f, bounds.getHeight() - 24.0f);
+        g.fillRect (halfX + 1.0f, bounds.getY() + 4.0f, 1.0f, bounds.getHeight() - 8.0f);
 
-        // Silkscreen titles
-        auto titleArea = bounds.reduced (10, 4).removeFromTop (16);
-        AnalogSynthLookAndFeel::drawSectionTitle (g, "VOICE", titleArea, SynthColours::silkscreen);
+        // Silkscreen titles in top sub-row
+        g.setFont (juce::Font (9.0f).boldened());
+        g.setColour (SynthColours::silkscreen);
+        g.drawText ("VOICE", bounds.reduced (10, 4).removeFromTop (14), juce::Justification::centredLeft, false);
 
-        auto rightTitle = bounds.reduced (10, 4).removeFromTop (16);
+        auto rightTitle = bounds.reduced (10, 4).removeFromTop (14);
         rightTitle.removeFromLeft (bounds.getWidth() * 0.5f + 8.0f);
-        AnalogSynthLookAndFeel::drawSectionTitle (g, "ARPEGGIATOR", rightTitle, SynthColours::sectionLfo);
+        g.setColour (SynthColours::sectionLfo);
+        g.drawText ("ARPEGGIATOR", rightTitle, juce::Justification::centredLeft, false);
     }
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced (8);
-        bounds.removeFromTop (20);
+        auto bounds = getLocalBounds().reduced (6, 2);
 
         int halfW = bounds.getWidth() / 2;
 
-        // Left: Voice controls
-        auto voiceArea = bounds.removeFromLeft (halfW);
-        auto btnRow = voiceArea.removeFromTop (26);
-        unisonButton.setBounds (btnRow.removeFromLeft (80).reduced (2, 0));
-        btnRow.removeFromLeft (8);
-        glideButton.setBounds (btnRow.removeFromLeft (80).reduced (2, 0));
+        // ---- Left: Voice controls ----
+        auto voiceArea = bounds.removeFromLeft (halfW).reduced (2, 0);
 
-        voiceArea.removeFromTop (4);
+        // Top sub-row: title + toggle buttons (22px)
+        auto vTopRow = voiceArea.removeFromTop (22);
+        vTopRow.removeFromLeft (42); // space for "VOICE" title
+        unisonButton.setBounds (vTopRow.removeFromLeft (62).reduced (1, 0));
+        vTopRow.removeFromLeft (2);
+        glideButton.setBounds (vTopRow.removeFromLeft (52).reduced (1, 0));
+
+        // Bottom sub-row: knobs (remaining ~46px)
+        voiceArea.removeFromTop (2);
         auto knobs = getKnobs();
         int knobW = voiceArea.getWidth() / static_cast<int> (knobs.size());
         for (int i = 0; i < static_cast<int> (knobs.size()); ++i)
             knobs[static_cast<size_t> (i)]->setBounds (voiceArea.getX() + i * knobW, voiceArea.getY(),
                                                         knobW, voiceArea.getHeight());
 
-        // Right: Arpeggiator
-        auto arpArea = bounds.reduced (8, 0);
-        auto arpBtnRow = arpArea.removeFromTop (26);
-        arpButton.setBounds (arpBtnRow.removeFromLeft (60).reduced (2, 0));
-        arpBtnRow.removeFromLeft (4);
-        arpModeSelector.setBounds (arpBtnRow.removeFromLeft (110).reduced (2, 0));
-        arpBtnRow.removeFromLeft (4);
-        arpDivSelector.setBounds (arpBtnRow.removeFromLeft (80).reduced (2, 0));
-        arpBtnRow.removeFromLeft (4);
-        arpLatchButton.setBounds (arpBtnRow.removeFromLeft (70).reduced (2, 0));
+        // ---- Right: Arpeggiator ----
+        auto arpArea = bounds.reduced (6, 0);
 
-        arpArea.removeFromTop (4);
+        // Top sub-row: title + toggle buttons + combos (22px)
+        auto aTopRow = arpArea.removeFromTop (22);
+        aTopRow.removeFromLeft (80); // space for "ARPEGGIATOR" title
+        arpButton.setBounds (aTopRow.removeFromLeft (42).reduced (1, 0));
+        aTopRow.removeFromLeft (2);
+        arpModeSelector.setBounds (aTopRow.removeFromLeft (90).reduced (1, 0));
+        aTopRow.removeFromLeft (2);
+        arpDivSelector.setBounds (aTopRow.removeFromLeft (70).reduced (1, 0));
+        aTopRow.removeFromLeft (2);
+        arpLatchButton.setBounds (aTopRow.removeFromLeft (52).reduced (1, 0));
+
+        // Bottom sub-row: knobs (remaining ~46px)
+        arpArea.removeFromTop (2);
         int arpKnobW = arpArea.getWidth() / 3;
         arpOctavesKnob->setBounds (arpArea.getX(), arpArea.getY(), arpKnobW, arpArea.getHeight());
         arpGateKnob->setBounds (arpArea.getX() + arpKnobW, arpArea.getY(), arpKnobW, arpArea.getHeight());

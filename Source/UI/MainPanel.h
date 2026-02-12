@@ -27,6 +27,7 @@
 #include "FilterPanel.h"
 #include "MixerPanel.h"
 #include "TabbedBottomPanel.h"
+#include "GlobalPanel.h"
 #include "PitchModWheelPanel.h"
 #include "../ParameterIDs.h"
 
@@ -41,6 +42,7 @@ public:
         addAndMakeVisible (waveformDisplay);
         addAndMakeVisible (oscBPanel);
         addAndMakeVisible (oscCPanel);
+        addAndMakeVisible (globalPanel);
         addAndMakeVisible (filterPanel);
         addAndMakeVisible (mixerPanel);
         addAndMakeVisible (tabbedPanel);
@@ -127,12 +129,19 @@ public:
                           ParameterIDs::osc3PulseWidth,
                           ParameterIDs::osc3Level);
 
+        globalPanel.attach (apvts);
         filterPanel.attach (apvts);
         mixerPanel.attach (apvts);
         tabbedPanel.attach (apvts);
     }
 
     WaveformDisplay& getWaveformDisplay() { return waveformDisplay; }
+
+    void setEnvelopeLevels (std::atomic<float>* filter, std::atomic<float>* amp,
+                            std::atomic<float>* e3, std::atomic<float>* e4)
+    {
+        tabbedPanel.setEnvelopeLevels (filter, amp, e3, e4);
+    }
 
     float getPitchBend() const { return pitchBendValue.load(); }
     float getModWheel() const  { return modWheelValue.load(); }
@@ -248,6 +257,7 @@ public:
         drawPanelAO (oscAPanel);
         drawPanelAO (oscBPanel);
         drawPanelAO (oscCPanel);
+        drawPanelAO (globalPanel);
         drawPanelAO (filterPanel);
         drawPanelAO (mixerPanel);
         drawPanelAO (waveformDisplay);
@@ -288,18 +298,21 @@ public:
         if (keyboard != nullptr)
             keyboard->setBounds (bottomBar);
 
-        // Bottom tabbed panel: 260px
-        tabbedPanel.setBounds (bounds.removeFromBottom (260));
+        // Bottom tabbed panel: 250px
+        tabbedPanel.setBounds (bounds.removeFromBottom (250));
 
         // Separator line
         bounds.removeFromBottom (2);
 
-        // Top row: OSC A | OSC B | OSC C — full width, more breathing room
-        auto topRow = bounds.removeFromTop (200);
+        // Top row: OSC A | OSC B | OSC C — 180px
+        auto topRow = bounds.removeFromTop (180);
         int oscW = topRow.getWidth() / 3;
         oscAPanel.setBounds (topRow.removeFromLeft (oscW).reduced (6));
         oscBPanel.setBounds (topRow.removeFromLeft (oscW).reduced (6));
         oscCPanel.setBounds (topRow.reduced (6));
+
+        // Voice/Arp strip: 70px
+        globalPanel.setBounds (bounds.removeFromTop (70).reduced (6, 2));
 
         // Middle row: Filter | Mixer | Waveform — signal flow left to right
         auto midRow = bounds.reduced (0, 2);
@@ -365,6 +378,7 @@ private:
     OscillatorPanel oscBPanel  { "OSC B", SynthColours::sectionOsc, true };  // showSync
     OscillatorPanel oscCPanel  { "OSC C", SynthColours::sectionOsc };
     WaveformDisplay waveformDisplay;
+    GlobalPanel     globalPanel;
     FilterPanel     filterPanel;
     MixerPanel      mixerPanel;
     TabbedBottomPanel tabbedPanel;

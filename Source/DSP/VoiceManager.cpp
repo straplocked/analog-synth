@@ -20,6 +20,30 @@
 #include "../ParameterIDs.h"
 #include "../Utility/DebugLog.h"
 
+static float syncDivToHz (int divIndex, double bpm)
+{
+    // Maps sync division index to beat count
+    // 0=1/32, 1=1/16T, 2=1/16, 3=1/8T, 4=1/8, 5=1/4T, 6=1/4, 7=1/2, 8=1Bar, 9=2Bars, 10=4Bars
+    static constexpr float beatCounts[] = {
+        0.125f,           // 1/32
+        1.0f / 6.0f,     // 1/16T (triplet)
+        0.25f,            // 1/16
+        1.0f / 3.0f,     // 1/8T (triplet)
+        0.5f,             // 1/8
+        2.0f / 3.0f,     // 1/4T (triplet)
+        1.0f,             // 1/4
+        2.0f,             // 1/2
+        4.0f,             // 1 Bar
+        8.0f,             // 2 Bars
+        16.0f             // 4 Bars
+    };
+
+    int idx = std::clamp (divIndex, 0, 10);
+    float beats = beatCounts[idx];
+    float seconds = beats * 60.0f / static_cast<float> (bpm);
+    return 1.0f / seconds;
+}
+
 void VoiceManager::prepare (double newSampleRate, int newSamplesPerBlock)
 {
     sampleRate = newSampleRate;
@@ -279,6 +303,34 @@ void VoiceManager::renderBlock (juce::AudioBuffer<float>& outputBuffer, int numS
             juce::FloatVectorOperations::copy (rightChannel, leftChannel, numSamples);
     }
 
+    // Snapshot envelope levels from most recently triggered active voice
+    {
+        int newestVoice = -1;
+        int newestAge = -1;
+        for (int v = 0; v < kMaxVoices; ++v)
+        {
+            if (voices[v].isActive() && voiceAge[v] > newestAge)
+            {
+                newestAge = voiceAge[v];
+                newestVoice = v;
+            }
+        }
+        if (newestVoice >= 0)
+        {
+            envLevelFilter.store (voices[newestVoice].getFilterEnvLevel(), std::memory_order_relaxed);
+            envLevelAmp.store (voices[newestVoice].getAmpEnvLevel(), std::memory_order_relaxed);
+            envLevelEnv3.store (voices[newestVoice].getEnv3Level(), std::memory_order_relaxed);
+            envLevelEnv4.store (voices[newestVoice].getEnv4Level(), std::memory_order_relaxed);
+        }
+        else
+        {
+            envLevelFilter.store (0.0f, std::memory_order_relaxed);
+            envLevelAmp.store (0.0f, std::memory_order_relaxed);
+            envLevelEnv3.store (0.0f, std::memory_order_relaxed);
+            envLevelEnv4.store (0.0f, std::memory_order_relaxed);
+        }
+    }
+
     // Bus saturation: transparent at normal levels, soft-clips when voices stack hot
     // tanh(x/3)*3 is within 1.7% of linear at |x|<1, only engages above ~1.5
     constexpr float kBusHeadroom = 3.0f;
@@ -339,10 +391,18 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
     int lfo2ShapeVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo2Shape)->load());
     float lfo2RateVal = apvts.getRawParameterValue (ParameterIDs::lfo2Rate)->load();
     bool lfo2KeySyncVal = apvts.getRawParameterValue (ParameterIDs::lfo2KeySync)->load() > 0.5f;
+    bool lfo2SyncOn = apvts.getRawParameterValue (ParameterIDs::lfo2Sync)->load() > 0.5f;
+    int lfo2SyncDivVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo2SyncDiv)->load());
+    if (lfo2SyncOn)
+        lfo2RateVal = syncDivToHz (lfo2SyncDivVal, currentBpm);
 
     int lfo3ShapeVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo3Shape)->load());
     float lfo3RateVal = apvts.getRawParameterValue (ParameterIDs::lfo3Rate)->load();
     bool lfo3KeySyncVal = apvts.getRawParameterValue (ParameterIDs::lfo3KeySync)->load() > 0.5f;
+    bool lfo3SyncOn = apvts.getRawParameterValue (ParameterIDs::lfo3Sync)->load() > 0.5f;
+    int lfo3SyncDivVal = static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfo3SyncDiv)->load());
+    if (lfo3SyncOn)
+        lfo3RateVal = syncDivToHz (lfo3SyncDivVal, currentBpm);
 
     // Step sequencer smoothing per LFO
     bool lfo1StepSmoothVal = apvts.getRawParameterValue (ParameterIDs::lfo1StepSmooth)->load() > 0.5f;
@@ -483,9 +543,12 @@ void VoiceManager::updateParameters (juce::AudioProcessorValueTreeState& apvts)
         voice.setEnv4Params (env4A * envTimeFactor, env4H, env4D * envTimeFactor, env4S, env4R * envTimeFactor);
         voice.setEnv4Loop (env4LoopOn, env4LoopStart, env4LoopEnd);
 
-        // LFO 1 — apply per-voice rate variation
+        // LFO 1 — apply per-voice rate variation + tempo sync
         voice.setLFOShape (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfoShape)->load()));
         float lfoRate = apvts.getRawParameterValue (ParameterIDs::lfoRate)->load();
+        bool lfo1SyncOn = apvts.getRawParameterValue (ParameterIDs::lfoSync)->load() > 0.5f;
+        if (lfo1SyncOn)
+            lfoRate = syncDivToHz (static_cast<int> (apvts.getRawParameterValue (ParameterIDs::lfoSyncDiv)->load()), currentBpm);
         lfoRate *= drift[v].getLFORateOffsetFactor();
         voice.setLFORate (lfoRate);
         voice.setLFOKeySync (apvts.getRawParameterValue (ParameterIDs::lfoKeySync)->load() > 0.5f);

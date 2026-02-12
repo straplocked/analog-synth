@@ -138,6 +138,9 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     arpeggiator.setLatch (apvts.getRawParameterValue (ParameterIDs::arpLatch)->load() > 0.5f);
     arpeggiator.setBpm (currentBpm);
 
+    // Pass BPM to voice manager for LFO tempo sync
+    voiceManager.setBpm (currentBpm);
+
     // Update all voice parameters from APVTS (includes per-voice drift)
     voiceManager.updateParameters (apvts);
 

@@ -92,24 +92,6 @@ public:
         viewport.setScrollBarsShown (true, false);
         addAndMakeVisible (viewport);
 
-        // ---- Osc2 FM legacy section ----
-        fmLabel.setText ("FM (Osc2)", juce::dontSendNotification);
-        fmLabel.setFont (juce::Font (9.0f));
-        fmLabel.setColour (juce::Label::textColourId, SynthColours::sectionOsc);
-        fmLabel.setJustificationType (juce::Justification::centredLeft);
-        addAndMakeVisible (fmLabel);
-
-        osc2ToFreq  = std::make_unique<RotaryKnob> ("FREQ", "");
-        osc2ToShape = std::make_unique<RotaryKnob> ("SHAPE", "");
-        osc2ToPW    = std::make_unique<RotaryKnob> ("PW", "");
-        osc2ToLPF   = std::make_unique<RotaryKnob> ("LPF", "");
-        osc2ToHPF   = std::make_unique<RotaryKnob> ("HPF", "");
-
-        for (auto* k : getFMKnobs())
-        {
-            k->setAccentColour (SynthColours::sectionOsc);
-            addAndMakeVisible (*k);
-        }
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
@@ -129,11 +111,6 @@ public:
                 apvts, ParameterIDs::modSlotAmountIDs[i], *amountSliders[i]);
         }
 
-        osc2ToFreq->attach (apvts, ParameterIDs::polyModOsc2ToOsc1Freq);
-        osc2ToShape->attach (apvts, ParameterIDs::polyModOsc2ToOsc1Shape);
-        osc2ToPW->attach (apvts, ParameterIDs::polyModOsc2ToOsc1PW);
-        osc2ToLPF->attach (apvts, ParameterIDs::polyModOsc2ToLPF);
-        osc2ToHPF->attach (apvts, ParameterIDs::polyModOsc2ToHPF);
     }
 
     void paint (juce::Graphics& g) override
@@ -161,16 +138,7 @@ public:
             macros[static_cast<size_t> (i)]->setBounds (macroRow.getX() + i * macroW, macroRow.getY(),
                                                          macroW, macroRow.getHeight());
 
-        // ---- FM knobs row (bottom) ----
-        auto fmRow = bounds.removeFromBottom (60);
-        fmLabel.setBounds (fmRow.removeFromLeft (50));
-        auto fmKnobs = getFMKnobs();
-        int fmW = fmRow.getWidth() / 5;
-        for (int i = 0; i < 5; ++i)
-            fmKnobs[static_cast<size_t> (i)]->setBounds (fmRow.getX() + i * fmW, fmRow.getY(),
-                                                           fmW, fmRow.getHeight());
-
-        // ---- Mod slot list (middle, scrollable) ----
+        // ---- Mod slot list (scrollable) ----
         bounds.removeFromTop (4);
         bounds.removeFromBottom (4);
 
@@ -200,12 +168,6 @@ private:
         return { macro1.get(), macro2.get(), macro3.get(), macro4.get() };
     }
 
-    std::vector<RotaryKnob*> getFMKnobs()
-    {
-        return { osc2ToFreq.get(), osc2ToShape.get(), osc2ToPW.get(),
-                 osc2ToLPF.get(), osc2ToHPF.get() };
-    }
-
     // Macros
     std::unique_ptr<RotaryKnob> macro1, macro2, macro3, macro4;
 
@@ -221,10 +183,6 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttach[16];
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> destAttach[16];
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttach[16];
-
-    // Osc2 FM legacy knobs
-    std::unique_ptr<RotaryKnob> osc2ToFreq, osc2ToShape, osc2ToPW, osc2ToLPF, osc2ToHPF;
-    juce::Label fmLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ModMatrixPanel)
 };

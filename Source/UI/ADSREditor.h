@@ -35,6 +35,8 @@ public:
 
     ~ADSREditor() override { stopTimer(); }
 
+    void setEnvLevel (std::atomic<float>* level) { envLevel = level; }
+
     void attach (juce::AudioProcessorValueTreeState& apvts,
                  const juce::String& attackID,
                  const juce::String& decayID,
@@ -184,6 +186,68 @@ public:
                     juce::Justification::centred);
         g.drawText ("R", juce::Rectangle<float> (releaseStartX, labelY, rW, 12),
                     juce::Justification::centred);
+
+        // Real-time envelope cursor
+        if (envLevel != nullptr)
+        {
+            float level = envLevel->load (std::memory_order_relaxed);
+            if (level > 0.001f)
+            {
+                // Map level to X position on the envelope curve
+                // Determine which stage based on level trajectory
+                float cursorX = x0;
+                float cursorY = bot;
+
+                // Use the envelope path to find the point where level matches
+                // Simple approach: walk the path segments
+                float levelY = top + (1.0f - level) * (bot - top);
+
+                if (level > sustain + 0.01f)
+                {
+                    // In attack or early decay phase
+                    if (level >= 0.99f)
+                    {
+                        // At peak — could be end of attack or start of decay
+                        cursorX = x0 + aW;
+                        cursorY = top;
+                    }
+                    else
+                    {
+                        // Rising: attack phase — map level to attack curve
+                        // Inverse of exponential: t = -ln(1 - level) / 4
+                        float t = -std::log (1.0f - std::min (level, 0.999f)) / 4.0f;
+                        t /= (1.0f / (1.0f - std::exp (-4.0f))); // normalize
+                        t = std::clamp (t, 0.0f, 1.0f);
+                        cursorX = x0 + t * aW;
+                        cursorY = bot - t * (bot - top); // approximate
+                    }
+                }
+                else if (level >= sustain - 0.01f && level <= sustain + 0.01f)
+                {
+                    // At sustain level
+                    cursorX = sustainStartX + sW * 0.5f;
+                    cursorY = sustainY;
+                }
+                else
+                {
+                    // Below sustain — release phase
+                    float relProgress = 1.0f - (level / std::max (sustain, 0.001f));
+                    relProgress = std::clamp (relProgress, 0.0f, 1.0f);
+                    cursorX = releaseStartX + relProgress * rW;
+                    cursorY = sustainY + (1.0f - level / std::max (sustain, 0.001f)) * (bot - sustainY);
+                }
+
+                cursorY = std::clamp (cursorY, top, bot);
+
+                // Draw cursor: outer glow -> inner dot -> white center
+                g.setColour (accentColour.withAlpha (0.3f));
+                g.fillEllipse (cursorX - 7.0f, cursorY - 7.0f, 14.0f, 14.0f);
+                g.setColour (accentColour);
+                g.fillEllipse (cursorX - 5.0f, cursorY - 5.0f, 10.0f, 10.0f);
+                g.setColour (juce::Colours::white);
+                g.fillEllipse (cursorX - 1.5f, cursorY - 1.5f, 3.0f, 3.0f);
+            }
+        }
     }
 
     void resized() override {}
@@ -203,6 +267,8 @@ private:
 
     juce::Slider attackSlider, decaySlider, sustainSlider, releaseSlider;
     std::unique_ptr<Attach> attackAttach, decayAttach, sustainAttach, releaseAttach;
+
+    std::atomic<float>* envLevel = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ADSREditor)
 };

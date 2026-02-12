@@ -45,6 +45,7 @@ public:
     void updateParameters (juce::AudioProcessorValueTreeState& apvts);
     void updateLFOShapeData (juce::AudioProcessorValueTreeState& apvts);
 
+    void setBpm (double bpm) { currentBpm = bpm; }
     void setPitchBend (float normalised);  // -1 to +1
     void setModWheel (float value);        // 0 to 1
     void setAftertouch (float value);      // 0 to 1
@@ -55,6 +56,12 @@ public:
 
     int getActiveVoiceCount() const;
 
+    // Envelope level snapshots (written by audio thread, read by UI)
+    std::atomic<float> envLevelFilter { 0.0f };
+    std::atomic<float> envLevelAmp { 0.0f };
+    std::atomic<float> envLevelEnv3 { 0.0f };
+    std::atomic<float> envLevelEnv4 { 0.0f };
+
 private:
     SynthVoice voices[kMaxVoices];
     AnalogDrift drift[kMaxVoices];
@@ -63,6 +70,7 @@ private:
 
     double sampleRate = 44100.0;
     int samplesPerBlock = 512;
+    double currentBpm = 120.0;
 
     float slopAmount = 0.2f;
     float pitchBendNorm = 0.0f;   // -1 to +1

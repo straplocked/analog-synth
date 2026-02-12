@@ -25,7 +25,6 @@
 #include "LFOPanel.h"
 #include "ModMatrixPanel.h"
 #include "FXPanel.h"
-#include "GlobalPanel.h"
 
 class TabbedBottomPanel : public juce::Component
 {
@@ -39,13 +38,11 @@ public:
         lfoPanel       = std::make_unique<LFOPanel>();
         modMatrixPanel = std::make_unique<ModMatrixPanel>();
         fxPanel        = std::make_unique<FXPanel>();
-        globalPanel    = std::make_unique<GlobalPanel>();
 
         tabbedComponent.addTab ("ENV",        SynthColours::panelBg, envPanel.get(),       false);
         tabbedComponent.addTab ("LFO",        SynthColours::panelBg, lfoPanel.get(),       false);
         tabbedComponent.addTab ("MOD MATRIX", SynthColours::panelBg, modMatrixPanel.get(), false);
         tabbedComponent.addTab ("FX",         SynthColours::panelBg, fxPanel.get(),        false);
-        tabbedComponent.addTab ("GLOBAL",     SynthColours::panelBg, globalPanel.get(),    false);
 
         addAndMakeVisible (tabbedComponent);
     }
@@ -56,7 +53,12 @@ public:
         lfoPanel->attach (apvts);
         modMatrixPanel->attach (apvts);
         fxPanel->attach (apvts);
-        globalPanel->attach (apvts);
+    }
+
+    void setEnvelopeLevels (std::atomic<float>* filter, std::atomic<float>* amp,
+                            std::atomic<float>* e3, std::atomic<float>* e4)
+    {
+        envPanel->setEnvelopeLevels (filter, amp, e3, e4);
     }
 
     void paint (juce::Graphics& g) override
@@ -82,7 +84,6 @@ private:
     std::unique_ptr<LFOPanel> lfoPanel;
     std::unique_ptr<ModMatrixPanel> modMatrixPanel;
     std::unique_ptr<FXPanel> fxPanel;
-    std::unique_ptr<GlobalPanel> globalPanel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabbedBottomPanel)
 };

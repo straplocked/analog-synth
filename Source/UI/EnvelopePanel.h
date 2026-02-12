@@ -152,6 +152,15 @@ public:
         addChildComponent (modMatrixHint);
     }
 
+    void setEnvelopeLevels (std::atomic<float>* filter, std::atomic<float>* amp,
+                            std::atomic<float>* e3, std::atomic<float>* e4)
+    {
+        filterEnvEditor.setEnvLevel (filter);
+        ampEnvEditor.setEnvLevel (amp);
+        env3Editor.setEnvLevel (e3);
+        env4Editor.setEnvLevel (e4);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         // Filter + Amp envelopes (always attached)
