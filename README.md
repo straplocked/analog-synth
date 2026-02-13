@@ -1,6 +1,6 @@
 # AnalogSynth
 
-[![Build](https://github.com/analogsynth/analog-synth/actions/workflows/build.yml/badge.svg)](https://github.com/analogsynth/analog-synth/actions/workflows/build.yml)
+[![CI](https://github.com/straplocked/analog-synth/actions/workflows/ci.yml/badge.svg)](https://github.com/straplocked/analog-synth/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
 Virtual analog synthesizer plugin inspired by the Sequential Prophet-6, built with JUCE 7.0.12.
