@@ -7,6 +7,8 @@ Virtual analog synthesizer plugin inspired by the Sequential Prophet-6, built wi
 
 **Plugin formats:** VST3, AU, Standalone
 
+![AnalogSynth Screenshot](docs/screenshot.png)
+
 ## Features
 
 - **3 PolyBLEP oscillators** with Saw, Pulse, Triangle, Square waveforms and hard sync
