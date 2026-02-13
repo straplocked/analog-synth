@@ -7,32 +7,14 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-14
-            name: macOS
-          - os: ubuntu-latest
-            name: Linux
-          - os: windows-latest
-            name: Windows
-
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-
+  build-macos:
+    name: macOS
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxcursor-dev libxinerama-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev libwebkit2gtk-4.1-dev
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -43,10 +25,85 @@ jobs:
       - name: Build tests
         run: cmake --build build --config Release --target AnalogSynthTests
 
-      - name: Run tests (Unix)
-        if: runner.os != 'Windows'
+      - name: Run tests
         run: ./build/AnalogSynthTests
 
-      - name: Run tests (Windows)
-        if: runner.os == 'Windows'
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-plugins
+          path: |
+            build/AnalogSynth_artefacts/**/*.app
+            build/AnalogSynth_artefacts/**/*.vst3
+            build/AnalogSynth_artefacts/**/*.component
+
+  build-windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022"
+
+      - name: Build plugin
+        run: cmake --build build --config Release
+
+      - name: Build tests
+        run: cmake --build build --config Release --target AnalogSynthTests
+
+      - name: Run tests
         run: ./build/Release/AnalogSynthTests.exe
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-plugins
+          path: |
+            build/AnalogSynth_artefacts/**/*.exe
+            build/AnalogSynth_artefacts/**/*.vst3
+
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libasound2-dev
+          libx11-dev
+          libxrandr-dev
+          libxcursor-dev
+          libxinerama-dev
+          libfreetype-dev
+          libfontconfig1-dev
+          libgl1-mesa-dev
+          libwebkit2gtk-4.1-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build plugin
+        run: cmake --build build --config Release
+
+      - name: Build tests
+        run: cmake --build build --config Release --target AnalogSynthTests
+
+      - name: Run tests
+        run: ./build/AnalogSynthTests
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-plugins
+          path: |
+            build/AnalogSynth_artefacts/**/*Standalone*
+            build/AnalogSynth_artefacts/**/*.vst3
