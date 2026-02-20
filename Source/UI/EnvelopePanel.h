@@ -152,6 +152,14 @@ public:
         addChildComponent (modMatrixHint);
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getFilterKnobs()) k->setMidiLearnManager (m);
+        for (auto* k : getAmpKnobs()) k->setMidiLearnManager (m);
+        for (auto* k : getEnv3Knobs()) k->setMidiLearnManager (m);
+        for (auto* k : getEnv4Knobs()) k->setMidiLearnManager (m);
+    }
+
     void setEnvelopeLevels (std::atomic<float>* filter, std::atomic<float>* amp,
                             std::atomic<float>* e3, std::atomic<float>* e4)
     {

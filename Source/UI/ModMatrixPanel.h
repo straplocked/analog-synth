@@ -94,6 +94,12 @@ public:
 
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getMacroKnobs())
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         macro1->attach (apvts, ParameterIDs::macro1);

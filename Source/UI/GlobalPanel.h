@@ -83,6 +83,15 @@ public:
         addAndMakeVisible (arpDivSelector);
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getKnobs())
+            k->setMidiLearnManager (m);
+        arpOctavesKnob->setMidiLearnManager (m);
+        arpGateKnob->setMidiLearnManager (m);
+        arpBpmKnob->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         slopKnob->attach (apvts, ParameterIDs::slop);

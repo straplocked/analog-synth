@@ -21,8 +21,10 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "AnalogSynthLookAndFeel.h"
+#include "../Utility/MidiLearnManager.h"
 
-class RotaryKnob : public juce::Component
+class RotaryKnob : public juce::Component,
+                   public MidiLearnManager::Listener
 {
 public:
     RotaryKnob (const juce::String& labelText,
@@ -52,7 +54,11 @@ public:
         slider.onValueChange = [this] { updateValueText(); };
     }
 
-    ~RotaryKnob() override = default;
+    ~RotaryKnob() override
+    {
+        if (midiLearnManager != nullptr)
+            midiLearnManager->removeListener (this);
+    }
 
     void resized() override
     {
@@ -75,12 +81,15 @@ public:
 
     void setAccentColour (juce::Colour colour)
     {
+        defaultAccentColour = colour;
         slider.setColour (juce::Slider::thumbColourId, colour);
         slider.setColour (juce::Slider::rotarySliderFillColourId, colour);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID)
     {
+        parameterID = paramID;
+        defaultAccentColour = slider.findColour (juce::Slider::thumbColourId);
         attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
             apvts, paramID, slider);
         updateValueText();
@@ -91,7 +100,37 @@ public:
         attachment.reset();
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        if (midiLearnManager != nullptr)
+            midiLearnManager->removeListener (this);
+
+        midiLearnManager = m;
+
+        if (midiLearnManager != nullptr)
+        {
+            midiLearnManager->addListener (this);
+            updateMidiLearnVisual();
+        }
+    }
+
     juce::Slider& getSlider() { return slider; }
+
+    // --- MidiLearnManager::Listener ---
+    void midiLearnStateChanged() override
+    {
+        updateMidiLearnVisual();
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu() && midiLearnManager != nullptr && parameterID.isNotEmpty())
+        {
+            showMidiLearnMenu();
+            return;
+        }
+        Component::mouseDown (e);
+    }
 
 private:
     void updateValueText()
@@ -118,11 +157,71 @@ private:
         valueLabel.setText (text, juce::dontSendNotification);
     }
 
+    void updateMidiLearnVisual()
+    {
+        if (midiLearnManager == nullptr || parameterID.isEmpty())
+            return;
+
+        if (midiLearnManager->isLearning() &&
+            midiLearnManager->getLearningParamID() == parameterID)
+        {
+            slider.setColour (juce::Slider::thumbColourId, SynthColours::ledRed);
+            slider.setColour (juce::Slider::rotarySliderFillColourId, SynthColours::ledRed);
+        }
+        else if (midiLearnManager->hasMapping (parameterID))
+        {
+            slider.setColour (juce::Slider::thumbColourId, SynthColours::ledAmber);
+            slider.setColour (juce::Slider::rotarySliderFillColourId, SynthColours::ledAmber);
+        }
+        else
+        {
+            slider.setColour (juce::Slider::thumbColourId, defaultAccentColour);
+            slider.setColour (juce::Slider::rotarySliderFillColourId, defaultAccentColour);
+        }
+        repaint();
+    }
+
+    void showMidiLearnMenu()
+    {
+        juce::PopupMenu menu;
+        bool hasMapping = midiLearnManager->hasMapping (parameterID);
+        int currentCC = midiLearnManager->getCCForParam (parameterID);
+
+        if (hasMapping)
+        {
+            menu.addItem (1, "MIDI Learn (CC " + juce::String (currentCC) + " assigned)");
+            menu.addItem (2, "Remove MIDI CC " + juce::String (currentCC));
+        }
+        else
+        {
+            menu.addItem (1, "MIDI Learn");
+        }
+        menu.addItem (3, "Clear All MIDI Mappings");
+
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+            [this] (int result)
+            {
+                if (result == 1)
+                    midiLearnManager->startLearning (parameterID);
+                else if (result == 2)
+                {
+                    midiLearnManager->removeMapping (parameterID);
+                    midiLearnManager->saveToState();
+                }
+                else if (result == 3)
+                    midiLearnManager->clearAllMappings();
+            });
+    }
+
     juce::Slider slider;
     juce::Label label;
     juce::Label valueLabel;
     juce::String suffix;
     bool showValue;
+
+    juce::String parameterID;
+    juce::Colour defaultAccentColour { SynthColours::accent };
+    MidiLearnManager* midiLearnManager = nullptr;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 

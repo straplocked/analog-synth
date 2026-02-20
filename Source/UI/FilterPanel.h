@@ -51,6 +51,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getKnobs())
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         typeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (

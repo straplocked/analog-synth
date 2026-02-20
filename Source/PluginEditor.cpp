@@ -26,6 +26,7 @@ AnalogSynthEditor::AnalogSynthEditor (AnalogSynthProcessor& p)
 
     mainPanel.attach (p.apvts);
     mainPanel.setPresetManager (&p.presetManager);
+    mainPanel.setMidiLearnManager (&p.midiLearnManager);
     mainPanel.setKeyboardState (&p.keyboardState);
     mainPanel.setEnvelopeLevels (p.getEnvLevelFilter(), p.getEnvLevelAmp(),
                                  p.getEnvLevelEnv3(), p.getEnvLevelEnv4());

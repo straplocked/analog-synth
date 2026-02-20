@@ -24,8 +24,10 @@
 #include "FX/FXChain.h"
 #include "ParameterIDs.h"
 #include "PresetManager.h"
+#include "Utility/MidiLearnManager.h"
 
-class AnalogSynthProcessor : public juce::AudioProcessor
+class AnalogSynthProcessor : public juce::AudioProcessor,
+                              private juce::ValueTree::Listener
 {
 public:
     AnalogSynthProcessor();
@@ -59,6 +61,7 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     PresetManager presetManager { apvts };
+    MidiLearnManager midiLearnManager { apvts };
     juce::MidiKeyboardState keyboardState;
 
     // Envelope level pointers for UI (owned by VoiceManager)
@@ -73,6 +76,8 @@ private:
     FXChain fxChain;
 
     void initLFOShapeData();
+
+    void valueTreeRedirected (juce::ValueTree&) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalogSynthProcessor)
 };

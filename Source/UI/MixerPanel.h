@@ -51,6 +51,12 @@ public:
         addAndMakeVisible (subOctaveBox);
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getKnobs())
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         osc1Knob->attach (apvts, ParameterIDs::osc1Level);

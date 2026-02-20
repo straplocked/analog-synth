@@ -47,6 +47,14 @@ public:
         addAndMakeVisible (tabbedComponent);
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        envPanel->setMidiLearnManager (m);
+        lfoPanel->setMidiLearnManager (m);
+        modMatrixPanel->setMidiLearnManager (m);
+        fxPanel->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         envPanel->attach (apvts);

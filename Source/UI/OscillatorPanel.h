@@ -55,6 +55,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto* k : getKnobs())
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts,
                  const juce::String& waveformID,
                  const juce::String& octaveID,

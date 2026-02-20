@@ -47,6 +47,8 @@ public:
 
     int getEffectIndex() const { return fxIndex; }
 
+    virtual void setMidiLearnManager (MidiLearnManager* /*m*/) {}
+
     // Callback fired when a module is dropped onto this one.
     // Args: sourceFxIndex, targetFxIndex, insertBefore
     std::function<void (int, int, bool)> onModuleDropped;
@@ -281,6 +283,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { drive.get(), tone.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::distEnabled, enableButton);
@@ -331,6 +339,12 @@ public:
             k->setAccentColour (SynthColours::sectionFx);
             addAndMakeVisible (*k);
         }
+    }
+
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { threshold.get(), ratio.get(), mixKnob.get(), attack.get(), release.get(), makeup.get() })
+            k->setMidiLearnManager (m);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
@@ -390,6 +404,13 @@ public:
             k->setAccentColour (SynthColours::sectionFx);
             addAndMakeVisible (*k);
         }
+    }
+
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { lowFreq.get(), lowGain.get(), midFreq.get(), midGain.get(),
+                          midQ.get(), highFreq.get(), highGain.get() })
+            k->setMidiLearnManager (m);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
@@ -456,6 +477,12 @@ public:
         addAndMakeVisible (flangerBtn);
     }
 
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { rate.get(), depth.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::chorusEnabled, enableButton);
@@ -518,6 +545,12 @@ public:
             k->setAccentColour (SynthColours::sectionFx);
             addAndMakeVisible (*k);
         }
+    }
+
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { time.get(), feedback.get(), mixKnob.get(), widthKnob.get() })
+            k->setMidiLearnManager (m);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
@@ -609,6 +642,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { sizeKnob.get(), dampingKnob.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::reverbEnabled, enableButton);
@@ -661,6 +700,12 @@ public:
             k->setAccentColour (SynthColours::sectionFx);
             addAndMakeVisible (*k);
         }
+    }
+
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { rate.get(), depth.get(), feedback.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)
@@ -718,6 +763,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { rate.get(), depth.get(), feedback.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         enableAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, ParameterIDs::flangerEnabled, enableButton);
@@ -767,6 +818,12 @@ public:
             k->setAccentColour (SynthColours::sectionFx);
             addAndMakeVisible (*k);
         }
+    }
+
+    void setMidiLearnManager (MidiLearnManager* m) override
+    {
+        for (auto* k : { detune.get(), spread.get(), mixKnob.get() })
+            k->setMidiLearnManager (m);
     }
 
     void attach (juce::AudioProcessorValueTreeState& apvts)

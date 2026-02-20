@@ -68,6 +68,12 @@ public:
         }
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (int i = 0; i < 3; ++i)
+            columns[i].rateKnob->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         // LFO 1

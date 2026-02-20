@@ -100,6 +100,17 @@ public:
 
     void setPresetManager (PresetManager* mgr) { headerPanel.setPresetManager (mgr); }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        oscAPanel.setMidiLearnManager (m);
+        oscBPanel.setMidiLearnManager (m);
+        oscCPanel.setMidiLearnManager (m);
+        globalPanel.setMidiLearnManager (m);
+        filterPanel.setMidiLearnManager (m);
+        mixerPanel.setMidiLearnManager (m);
+        tabbedPanel.setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         headerPanel.attach (apvts);

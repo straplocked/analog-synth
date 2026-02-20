@@ -55,6 +55,12 @@ public:
             visualOrder[static_cast<std::size_t> (i)] = i;
     }
 
+    void setMidiLearnManager (MidiLearnManager* m)
+    {
+        for (auto& mod : modules)
+            mod->setMidiLearnManager (m);
+    }
+
     void attach (juce::AudioProcessorValueTreeState& apvts)
     {
         apvtsRef = &apvts;

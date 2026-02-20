@@ -28,6 +28,8 @@ AnalogSynthProcessor::AnalogSynthProcessor()
 {
     // Initialize LFO shape data child tree if not present
     initLFOShapeData();
+    midiLearnManager.loadFromState();
+    apvts.state.addListener (this);
 
     auto logPath = juce::File::getSpecialLocation (juce::File::userDesktopDirectory)
                        .getChildFile ("AnalogSynth_debug.log")
@@ -167,9 +169,16 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 float normalised = (msg.getPitchWheelValue() - 8192) / 8192.0f;
                 voiceManager.setPitchBend (normalised);
             }
-            else if (msg.isController() && msg.getControllerNumber() == 1)
+            else if (msg.isController())
             {
-                voiceManager.setModWheel (msg.getControllerValue() / 127.0f);
+                int ccNum = msg.getControllerNumber();
+                int ccVal = msg.getControllerValue();
+
+                if (! midiLearnManager.handleCC (msg.getChannel(), ccNum, ccVal))
+                {
+                    if (ccNum == 1)
+                        voiceManager.setModWheel (ccVal / 127.0f);
+                }
             }
             else if (msg.isChannelPressure())
             {
@@ -218,9 +227,16 @@ void AnalogSynthProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 float normalised = (msg.getPitchWheelValue() - 8192) / 8192.0f;
                 voiceManager.setPitchBend (normalised);
             }
-            else if (msg.isController() && msg.getControllerNumber() == 1)
+            else if (msg.isController())
             {
-                voiceManager.setModWheel (msg.getControllerValue() / 127.0f);
+                int ccNum = msg.getControllerNumber();
+                int ccVal = msg.getControllerValue();
+
+                if (! midiLearnManager.handleCC (msg.getChannel(), ccNum, ccVal))
+                {
+                    if (ccNum == 1)
+                        voiceManager.setModWheel (ccVal / 127.0f);
+                }
             }
             else if (msg.isChannelPressure())
             {
@@ -321,6 +337,7 @@ juce::AudioProcessorEditor* AnalogSynthProcessor::createEditor()
 
 void AnalogSynthProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    midiLearnManager.saveToState();
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
@@ -333,7 +350,13 @@ void AnalogSynthProcessor::setStateInformation (const void* data, int sizeInByte
     {
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
         initLFOShapeData(); // Ensure shape data exists after preset load
+        midiLearnManager.loadFromState();
     }
+}
+
+void AnalogSynthProcessor::valueTreeRedirected (juce::ValueTree&)
+{
+    midiLearnManager.loadFromState();
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
