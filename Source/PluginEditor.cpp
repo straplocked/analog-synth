@@ -25,6 +25,7 @@ AnalogSynthEditor::AnalogSynthEditor (AnalogSynthProcessor& p)
     setSize (1400, 800);
 
     mainPanel.attach (p.apvts);
+    mainPanel.connectDisplayToAPVTS (p.apvts);
     mainPanel.setPresetManager (&p.presetManager);
     mainPanel.setMidiLearnManager (&p.midiLearnManager);
     mainPanel.setKeyboardState (&p.keyboardState);

@@ -148,6 +148,11 @@ public:
 
     WaveformDisplay& getWaveformDisplay() { return waveformDisplay; }
 
+    void connectDisplayToAPVTS (juce::AudioProcessorValueTreeState& apvts)
+    {
+        waveformDisplay.connectToAPVTS (&apvts);
+    }
+
     void setEnvelopeLevels (std::atomic<float>* filter, std::atomic<float>* amp,
                             std::atomic<float>* e3, std::atomic<float>* e4)
     {

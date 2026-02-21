@@ -91,6 +91,7 @@ void AnalogSynthProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 {
     SYNTH_LOG ("prepareToPlay: sr=" + juce::String (sampleRate)
                + " blockSize=" + juce::String (samplesPerBlock));
+    lastSampleRate = static_cast<float> (sampleRate);
     voiceManager.prepare (sampleRate, samplesPerBlock);
     arpeggiator.prepare (sampleRate);
     fxChain.prepare (sampleRate, samplesPerBlock);
@@ -332,7 +333,9 @@ bool AnalogSynthProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* AnalogSynthProcessor::createEditor()
 {
-    return new AnalogSynthEditor (*this);
+    auto* editor = new AnalogSynthEditor (*this);
+    editor->getWaveformDisplay().setSampleRate (lastSampleRate);
+    return editor;
 }
 
 void AnalogSynthProcessor::getStateInformation (juce::MemoryBlock& destData)

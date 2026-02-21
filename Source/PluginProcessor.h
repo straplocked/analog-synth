@@ -63,6 +63,7 @@ public:
     PresetManager presetManager { apvts };
     MidiLearnManager midiLearnManager { apvts };
     juce::MidiKeyboardState keyboardState;
+    float lastSampleRate = 44100.0f;
 
     // Envelope level pointers for UI (owned by VoiceManager)
     std::atomic<float>* getEnvLevelFilter() { return &voiceManager.envLevelFilter; }
